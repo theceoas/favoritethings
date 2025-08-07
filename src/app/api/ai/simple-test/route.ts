@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
+// Initialize OpenAI client only if API key is available
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-})
+}) : null
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🧪 Testing simple DALL-E generation...')
 
     // Check if OpenAI API key is configured
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY || !openai) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
+        { error: 'OpenAI API key not configured. AI image generation is disabled.' },
+        { status: 503 }
       )
     }
 

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-// Initialize OpenAI client
-const openai = new OpenAI({
+// Initialize OpenAI client only if API key is available
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-})
+}) : null
 
 // Professional prompt for bedding product images
 const BEDDING_PRODUCT_PROMPT = `Generate a high-resolution website-ready product image for a bedding business. Use the exact same design, color, and fabric details as the reference image — do not alter or stylize the bedding in any way.
@@ -18,10 +18,10 @@ This image must be suitable for use on an e-commerce product page — clean, min
 export async function POST(request: NextRequest) {
   try {
     // Check if OpenAI API key is configured
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.OPENAI_API_KEY || !openai) {
       return NextResponse.json(
-        { error: 'OpenAI API key not configured' },
-        { status: 500 }
+        { error: 'OpenAI API key not configured. AI image generation is disabled.' },
+        { status: 503 }
       )
     }
 
