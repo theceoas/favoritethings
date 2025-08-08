@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { X, Percent, Gift } from "lucide-react"
 
 export function DiscountPopup() {
   const [isVisible, setIsVisible] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     // Show popup after 3 seconds
@@ -18,6 +20,11 @@ export function DiscountPopup() {
   }, [])
 
   const handleClose = () => {
+    setIsVisible(false)
+  }
+
+  const handleSignUp = () => {
+    router.push("/auth/signup")
     setIsVisible(false)
   }
 
@@ -58,10 +65,14 @@ export function DiscountPopup() {
             </div>
             
             <div className="flex space-x-2">
-              <Button className="bg-black text-yellow-400 hover:bg-black/80 flex-1 text-sm font-semibold">
+              <Button 
+                onClick={handleSignUp}
+                className="bg-black text-yellow-400 hover:bg-black/80 flex-1 text-sm font-semibold"
+              >
                 Sign Up
               </Button>
               <Button 
+                onClick={handleClose}
                 variant="outline" 
                 className="border-black text-black hover:bg-black/10 text-sm"
               >

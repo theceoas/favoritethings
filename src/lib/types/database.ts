@@ -127,6 +127,62 @@ export interface Database {
           updated_at?: string
         }
       }
+      brands: {
+        Row: {
+          id: string
+          name: string
+          slug: string
+          description: string | null
+          logo_url: string | null
+          primary_color: string
+          secondary_color: string
+          accent_color: string
+          is_active: boolean
+          sort_order: number
+          preview_image_url: string | null
+          preview_title: string | null
+          preview_description: string | null
+          show_on_homepage: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          slug: string
+          description?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          accent_color?: string
+          is_active?: boolean
+          sort_order?: number
+          preview_image_url?: string | null
+          preview_title?: string | null
+          preview_description?: string | null
+          show_on_homepage?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          slug?: string
+          description?: string | null
+          logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          accent_color?: string
+          is_active?: boolean
+          sort_order?: number
+          preview_image_url?: string | null
+          preview_title?: string | null
+          preview_description?: string | null
+          show_on_homepage?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       collections: {
         Row: {
           id: string

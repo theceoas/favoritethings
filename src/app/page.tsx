@@ -9,6 +9,7 @@ import Link from "next/link"
 import { DiscountPopup } from "@/components/discount-popup"
 import { AuthButtons } from "@/components/auth-buttons"
 import CartIcon from "@/components/CartIcon"
+import { createClient } from "@/lib/supabase/client"
 import {
   ChevronLeft,
   ChevronRight,
@@ -129,35 +130,127 @@ function FixedIdentityPanel({
         </div>
       </div>
 
-      {/* Mobile Navigation */}
-      <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-        <div className="bg-white/90 backdrop-blur-md rounded-full px-4 py-2 shadow-2xl border border-gray-200">
-          <div className="flex items-center space-x-3">
-            {frames.map((frame, index) => (
-              <motion.button
-                key={frame.id}
-                onClick={() => onNavigate(index)}
-                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  currentFrame === index
-                    ? "bg-yellow-400 scale-125"
-                    : "bg-gray-300 hover:bg-gray-400"
-                }`}
-                whileHover={{ scale: 1.2 }}
-                whileTap={{ scale: 0.9 }}
-              />
-            ))}
-            
-            {/* Cart Icon */}
-            <div className="w-px h-4 bg-gray-300 mx-1"></div>
-            <CartIcon size="sm" />
-          </div>
-        </div>
-      </div>
+
     </>
   )
 }
 
 function WelcomeFrame() {
+  const [brands, setBrands] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchBrands()
+  }, [])
+
+  const fetchBrands = async () => {
+    try {
+      const supabase = createClient()
+      
+      // Add null check for browser compatibility
+      if (!supabase) {
+        console.error('Supabase client not available')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('show_on_homepage', true)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+      
+      if (error) {
+        console.error('Supabase error fetching brands:', error)
+        // Fallback to default brand data if fetch fails
+        setBrands([
+          {
+            id: '1',
+            name: 'Kiowa',
+            slug: 'kiowa',
+            preview_title: 'Kiowa',
+            preview_description: 'Elegant sophistication with timeless pieces',
+            preview_image_url: '/placeholder.svg?height=300&width=250&text=Kiowa+Preview',
+            primary_color: '#F59E0B',
+            is_active: true,
+            show_on_homepage: true,
+            sort_order: 1
+          },
+          {
+            id: '2',
+            name: 'Omogebyify',
+            slug: 'omegebyify',
+            preview_title: 'Omogebyify',
+            preview_description: 'Bold and contemporary fashion',
+            preview_image_url: '/placeholder.svg?height=300&width=250&text=Omogebyify+Preview',
+            primary_color: '#DC2626',
+            is_active: true,
+            show_on_homepage: true,
+            sort_order: 2
+          },
+          {
+            id: '3',
+            name: 'MiniMe',
+            slug: 'minime',
+            preview_title: 'MiniMe',
+            preview_description: 'Playful and vibrant fashion',
+            preview_image_url: '/placeholder.svg?height=300&width=250&text=MiniMe+Preview',
+            primary_color: '#10B981',
+            is_active: true,
+            show_on_homepage: true,
+            sort_order: 3
+          }
+        ])
+      } else {
+        setBrands(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching brands:', error)
+      // Fallback to default brand data
+      setBrands([
+        {
+          id: '1',
+          name: 'Kiowa',
+          slug: 'kiowa',
+          preview_title: 'Kiowa',
+          preview_description: 'Elegant sophistication with timeless pieces',
+          preview_image_url: '/placeholder.svg?height=300&width=250&text=Kiowa+Preview',
+          primary_color: '#F59E0B',
+          is_active: true,
+          show_on_homepage: true,
+          sort_order: 1
+        },
+        {
+          id: '2',
+          name: 'Omogebyify',
+          slug: 'omegebyify',
+          preview_title: 'Omogebyify',
+          preview_description: 'Bold and contemporary fashion',
+          preview_image_url: '/placeholder.svg?height=300&width=250&text=Omogebyify+Preview',
+          primary_color: '#DC2626',
+          is_active: true,
+          show_on_homepage: true,
+          sort_order: 2
+        },
+        {
+          id: '3',
+          name: 'MiniMe',
+          slug: 'minime',
+          preview_title: 'MiniMe',
+          preview_description: 'Playful and vibrant fashion',
+          preview_image_url: '/placeholder.svg?height=300&width=250&text=MiniMe+Preview',
+          primary_color: '#10B981',
+          is_active: true,
+          show_on_homepage: true,
+          sort_order: 3
+        }
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-yellow-50 relative pt-16 lg:pt-0 pb-32 lg:pb-0 overflow-hidden">
       {/* Animated Background Elements */}
@@ -254,71 +347,76 @@ function WelcomeFrame() {
             transition={{ delay: 1, duration: 0.8 }}
             className="grid md:grid-cols-3 gap-8 mb-12 max-w-5xl mx-auto"
           >
-            <Link href="/brands/kiowa" className="relative group cursor-pointer">
-              <motion.div
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="relative group"
-              >
-                <div className="relative overflow-hidden rounded-2xl shadow-xl">
-                  <img
-                    src="/placeholder.svg?height=300&width=250&text=Kiowa+Preview"
-                    alt="Kiowa Preview"
-                    className="w-full h-64 object-contain transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                  <Badge className="absolute top-4 left-4 bg-yellow-400 text-black shadow-lg">
-                    Kiowa
-                  </Badge>
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <ArrowRight className="w-6 h-6 text-white" />
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 3 }).map((_, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.2 + index * 0.2, duration: 0.6 }}
+                  className="relative"
+                >
+                  <div className="relative overflow-hidden rounded-2xl shadow-xl bg-gray-200 animate-pulse">
+                    <div className="w-full h-64 bg-gray-300"></div>
+                    <div className="absolute top-4 left-4 w-16 h-6 bg-gray-400 rounded"></div>
                   </div>
-                </div>
-              </motion.div>
-            </Link>
-
-                          <Link href="/brands/omogebyify" className="relative group cursor-pointer">
-              <motion.div
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="relative group"
-              >
-                <div className="relative overflow-hidden rounded-2xl shadow-xl">
-                  <img
-                                    src="/placeholder.svg?height=300&width=250&text=Omogebyify+Preview"
-                alt="Omogebyify Preview"
-                    className="w-full h-64 object-contain transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                  <Badge className="absolute top-4 left-4 bg-red-400 text-white shadow-lg">
-                    Omogebyify
-                  </Badge>
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <ArrowRight className="w-6 h-6 text-white" />
+                  <div className="mt-3 text-center">
+                    <div className="w-32 h-4 bg-gray-300 rounded mx-auto animate-pulse"></div>
                   </div>
-                </div>
-              </motion.div>
-            </Link>
-
-            <Link href="/brands/minime" className="relative group cursor-pointer">
+                </motion.div>
+              ))
+            ) : brands.length > 0 ? (
+              brands.map((brand, index) => (
+                <Link key={brand.id} href={`/brands/${brand.slug}`} className="relative group cursor-pointer">
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.2 + index * 0.2, duration: 0.6 }}
+                    whileHover={{ y: -10, scale: 1.02 }}
+                    className="relative group"
+                  >
+                    <div className="relative overflow-hidden rounded-2xl shadow-xl">
+                      <img
+                        src={brand.preview_image_url || `/placeholder.svg?height=300&width=250&text=${encodeURIComponent(brand.name)}+Preview`}
+                        alt={`${brand.preview_title || brand.name} Preview`}
+                        className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
+                        onError={(e) => {
+                          // Fallback image on error
+                          e.currentTarget.src = `/placeholder.svg?height=300&width=250&text=${encodeURIComponent(brand.name)}+Preview`
+                        }}
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      <Badge 
+                        className="absolute top-4 left-4 text-white shadow-lg"
+                        style={{ backgroundColor: brand.primary_color || '#F59E0B' }}
+                      >
+                        {brand.preview_title || brand.name}
+                      </Badge>
+                      <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <ArrowRight className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    {brand.preview_description && (
+                      <div className="mt-3 text-center">
+                        <p className="text-sm text-gray-600">{brand.preview_description}</p>
+                      </div>
+                    )}
+                  </motion.div>
+                </Link>
+              ))
+            ) : (
+              // Fallback when no brands available
               <motion.div
-                whileHover={{ y: -10, scale: 1.02 }}
-                className="relative group"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.2, duration: 0.6 }}
+                className="col-span-3 text-center py-12"
               >
-                <div className="relative overflow-hidden rounded-2xl shadow-xl">
-                  <img
-                    src="/placeholder.svg?height=300&width=250&text=MiniMe+Preview"
-                    alt="MiniMe Preview"
-                    className="w-full h-64 object-contain transition-transform duration-700 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                  <Badge className="absolute top-4 left-4 bg-green-400 text-black shadow-lg">
-                    MiniMe
-                  </Badge>
-                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <ArrowRight className="w-6 h-6 text-white" />
-                  </div>
-                </div>
+                <p className="text-gray-500 text-lg">Our brands will appear here soon!</p>
               </motion.div>
-            </Link>
+            )}
           </motion.div>
 
           {/* CTA Button */}
@@ -846,28 +944,41 @@ function FooterFrame() {
 export default function EnhancedHomePage() {
   const [currentFrame, setCurrentFrame] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [hasInteracted, setHasInteracted] = useState(false)
 
   const navigateToFrame = (index: number) => {
     if (isTransitioning) return
+    setHasInteracted(true)
     setIsTransitioning(true)
     setCurrentFrame(index)
+    
+    // Scroll to top when changing frames
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+    
     setTimeout(() => setIsTransitioning(false), 500)
   }
 
   const nextFrame = () => {
     if (currentFrame < frames.length - 1) {
+      setHasInteracted(true)
       navigateToFrame(currentFrame + 1)
     }
   }
 
   const prevFrame = () => {
     if (currentFrame > 0) {
+      setHasInteracted(true)
       navigateToFrame(currentFrame - 1)
     }
   }
 
   const handleSwipe = (event: any, info: PanInfo) => {
+    // More sensitive swipe detection for better mobile UX
     if (Math.abs(info.offset.x) > 50) {
+      setHasInteracted(true)
       if (info.offset.x > 0) {
         prevFrame()
       } else {
@@ -918,40 +1029,75 @@ export default function EnhancedHomePage() {
       </div>
 
       {/* Mobile Navigation Arrows */}
-      <div className="lg:hidden fixed bottom-4 right-4 z-20 space-y-2">
-        <Button
-          onClick={prevFrame}
-          disabled={currentFrame === 0}
-          className="bg-white/80 backdrop-blur-sm text-black hover:bg-white p-2 rounded-full shadow-lg disabled:opacity-50"
+      <div className="lg:hidden fixed bottom-20 right-4 z-20 flex flex-col space-y-2">
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
         >
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        <Button
-          onClick={nextFrame}
-          disabled={currentFrame === frames.length - 1}
-          className="bg-white/80 backdrop-blur-sm text-black hover:bg-white p-2 rounded-full shadow-lg disabled:opacity-50"
+          <Button
+            onClick={prevFrame}
+            disabled={currentFrame === 0}
+            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
         >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+          <Button
+            onClick={nextFrame}
+            disabled={currentFrame === frames.length - 1}
+            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </Button>
+        </motion.div>
       </div>
 
-      {/* Mobile Navigation Dots */}
+      {/* Mobile Navigation Dots with Swipe Indicator */}
       <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20">
-        <div className="bg-white/90 backdrop-blur-md rounded-full px-4 py-2 shadow-2xl border border-gray-200">
-          <div className="flex space-x-3">
-            {frames.map((frame, index) => (
-              <motion.button
-                key={frame.id}
-                onClick={() => navigateToFrame(index)}
-                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  currentFrame === index
-                    ? "bg-yellow-400 scale-125"
-                    : "bg-gray-300 hover:bg-gray-400"
-                }`}
-                whileHover={{ scale: 1.2 }}
-                whileTap={{ scale: 0.9 }}
-              />
-            ))}
+        <div className="bg-white/95 backdrop-blur-md rounded-full px-4 py-3 shadow-2xl border border-gray-200/50">
+          <div className="flex items-center justify-center space-x-3">
+            {/* Swipe Indicator - Hide after user interaction */}
+            {!hasInteracted && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="flex items-center space-x-1 text-xs text-gray-500 mr-2"
+              >
+                <ChevronLeft className="w-3 h-3" />
+                <span className="text-[10px] font-medium whitespace-nowrap">Swipe</span>
+                <ChevronRight className="w-3 h-3" />
+              </motion.div>
+            )}
+            
+            {/* Dots */}
+            <div className="flex items-center space-x-2">
+              {frames.map((frame, index) => (
+                <motion.button
+                  key={frame.id}
+                  onClick={() => navigateToFrame(index)}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 touch-manipulation ${
+                    currentFrame === index
+                      ? "bg-yellow-400 scale-110 shadow-sm"
+                      : "bg-gray-300 hover:bg-gray-400 active:bg-gray-500"
+                  }`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                />
+              ))}
+            </div>
+            
+            {/* Cart Icon */}
+            <div className="w-px h-4 bg-gray-300 ml-3 mr-2"></div>
+            <div className="touch-manipulation">
+              <CartIcon size="sm" />
+            </div>
           </div>
         </div>
       </div>
@@ -963,8 +1109,11 @@ export default function EnhancedHomePage() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
-        onPanEnd={handleSwipe}
-        className="w-full"
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={handleSwipe}
+        className="w-full cursor-grab active:cursor-grabbing"
       >
         {renderCurrentFrame()}
       </motion.div>

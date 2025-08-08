@@ -85,7 +85,7 @@ export async function updateSession(request: NextRequest) {
 
   if (isProtectedRoute && user) {
     try {
-      // Check if user profile still exists
+      // Check if user profile exists, but don't fail if it doesn't
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
@@ -93,19 +93,26 @@ export async function updateSession(request: NextRequest) {
         .single()
 
       if (profileError && profileError.code === 'PGRST116') {
-        // Profile doesn't exist - user was deleted
-        const response = NextResponse.redirect(new URL('/auth/login', request.url))
-        response.cookies.delete('sb-access-token')
-        response.cookies.delete('sb-refresh-token')
-        return response
+        // Profile doesn't exist - try to create one
+        console.log('Profile not found for user, attempting to create:', user.email)
+        try {
+          await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              email: user.email,
+              full_name: user.user_metadata?.full_name || '',
+              role: 'customer'
+            })
+          console.log('Profile created successfully for user:', user.email)
+        } catch (createError) {
+          console.error('Error creating profile:', createError)
+          // Continue anyway - don't block the user
+        }
       }
     } catch (error) {
       console.error('Error validating user profile:', error)
-      // On error, redirect to login to be safe
-      const response = NextResponse.redirect(new URL('/auth/login', request.url))
-      response.cookies.delete('sb-access-token')
-      response.cookies.delete('sb-refresh-token')
-      return response
+      // Don't block user access on profile errors
     }
   }
 

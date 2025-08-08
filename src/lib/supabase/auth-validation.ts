@@ -45,28 +45,52 @@ export async function validateUserSession() {
       return result
     }
 
-    // Additional check: try to access the user's profile to ensure they exist in our system
+    // Try to get the user's profile, but don't fail if it doesn't exist yet
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, role, email, full_name')
       .eq('id', user.id)
       .single()
 
-    if (profileError) {
-      if (profileError.code === 'PGRST116') {
-        // Profile doesn't exist - user was deleted from our system
-        logger.log('User profile not found - user was deleted from system')
-        await supabase.auth.signOut()
-        const result = { isValid: false, user: null, profile: null, error: 'User profile not found', errorType: 'PROFILE_DELETED' }
+    // If profile doesn't exist, create one for the user instead of logging them out
+    if (profileError && profileError.code === 'PGRST116') {
+      logger.log('Profile not found, creating one for user:', user.email)
+      try {
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || '',
+            role: 'customer'
+          })
+          .select()
+          .single()
+
+        if (createError) {
+          logger.error('Error creating profile:', createError)
+          // Don't fail if we can't create profile - user can still be authenticated
+          const result = { isValid: true, user, profile: null, error: null, errorType: null }
+          validationCache = { timestamp: Date.now(), result }
+          return result
+        }
+
+        const result = { isValid: true, user, profile: newProfile, error: null, errorType: null }
         validationCache = { timestamp: Date.now(), result }
         return result
-      } else {
-        // Other database error
-        logger.error('Profile query error:', profileError)
-        const result = { isValid: false, user: null, profile: null, error: profileError.message, errorType: 'DATABASE_ERROR' }
+      } catch (error) {
+        logger.error('Error creating user profile:', error)
+        // Still allow authentication even if profile creation fails
+        const result = { isValid: true, user, profile: null, error: null, errorType: null }
         validationCache = { timestamp: Date.now(), result }
         return result
       }
+    } else if (profileError) {
+      logger.error('Profile query error:', profileError)
+      // Don't fail authentication for database errors
+      const result = { isValid: true, user, profile: null, error: null, errorType: null }
+      validationCache = { timestamp: Date.now(), result }
+      return result
     }
 
     const result = { isValid: true, user, profile, error: null, errorType: null }

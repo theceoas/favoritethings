@@ -368,14 +368,16 @@ export default function BrandsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View
-                    </Button>
+                    <Link href={`/admin/brands/${brand.id}/preview`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        Preview
+                      </Button>
+                    </Link>
                     <Link href={`/admin/brands/${brand.id}/edit`}>
                       <Button
                         variant="outline"
