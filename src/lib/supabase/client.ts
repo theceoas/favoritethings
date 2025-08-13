@@ -11,7 +11,7 @@ export function createClient() {
   // Check if we're in browser environment
   if (typeof window === 'undefined') {
     console.warn('Supabase client called in server environment')
-    return null as any
+    // Don't return null, create a client anyway for SSR compatibility
   }
   
   // Check if Supabase environment variables are configured

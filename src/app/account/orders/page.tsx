@@ -26,6 +26,7 @@ interface Order {
   total: number
   delivery_method: 'shipping' | 'pickup'
   tracking_number?: string
+  delivery_phone?: string
   created_at: string
   order_items: {
     id: string
@@ -73,6 +74,7 @@ export default function OrdersPage() {
           total,
           delivery_method,
           tracking_number,
+          delivery_phone,
           created_at,
           order_items (
             id,

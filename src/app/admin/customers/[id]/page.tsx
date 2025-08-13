@@ -137,7 +137,7 @@ export default function CustomerDetailPage() {
       if (profileError) throw profileError
       setCustomer(profile)
 
-      // Fetch addresses
+      // Fetch addresses with phone numbers
       const { data: addressData } = await supabase
         .from('addresses')
         .select('*')
@@ -145,6 +145,9 @@ export default function CustomerDetailPage() {
         .order('is_default', { ascending: false })
 
       setAddresses(addressData || [])
+
+      // Get phone numbers from addresses
+      const addressPhones = addressData?.filter(addr => addr.phone).map(addr => addr.phone) || []
 
       // Fetch orders with items
       const { data: orderData } = await supabase
@@ -373,22 +376,9 @@ export default function CustomerDetailPage() {
               <span className={`px-3 py-1 text-sm font-medium rounded-full ${segmentColors[segment]}`}>
                 {segment.charAt(0).toUpperCase() + segment.slice(1)}
               </span>
-              <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                customer.role === 'admin' 
-                  ? 'bg-purple-100 text-purple-800' 
-                  : 'bg-blue-100 text-blue-800'
-              }`}>
-                {customer.role === 'admin' ? (
-                  <>
-                    <ShieldCheckIcon className="w-4 h-4 inline mr-1" />
-                    Admin
-                  </>
-                ) : (
-                  <>
-                    <UserIcon className="w-4 h-4 inline mr-1" />
-                    Customer
-                  </>
-                )}
+              <span className="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800">
+                <UserIcon className="w-4 h-4 inline mr-1" />
+                Customer
               </span>
               <span className={`px-3 py-1 text-sm font-medium rounded-full ${
                 customer.is_active 
@@ -414,10 +404,17 @@ export default function CustomerDetailPage() {
                 <EnvelopeIcon className="w-5 h-5 mr-2" />
                 <span>{customer.email}</span>
               </div>
-              {customer.phone && (
+              {(customer.phone || addresses.some(addr => addr.phone)) && (
                 <div className="flex items-center text-gray-600">
                   <PhoneIcon className="w-5 h-5 mr-2" />
-                  <span>{customer.phone}</span>
+                  <div>
+                    {customer.phone && <div>{customer.phone}</div>}
+                    {addresses.filter(addr => addr.phone && addr.phone !== customer.phone).map((addr, index) => (
+                      <div key={index} className="text-sm text-gray-500">
+                        {addr.phone} ({addr.type})
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <div className="flex items-center text-gray-600">
@@ -430,6 +427,49 @@ export default function CustomerDetailPage() {
                   <span>Last login {new Date(customer.last_login).toLocaleDateString()}</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information Summary */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <EnvelopeIcon className="w-5 h-5 mr-2" />
+          Contact Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex items-center space-x-3">
+            <EnvelopeIcon className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{customer.email}</p>
+              <p className="text-xs text-gray-500">
+                {customer.email_verified ? 'Verified' : 'Unverified'}
+              </p>
+            </div>
+          </div>
+          
+          {(customer.phone || addresses.some(addr => addr.phone)) && (
+            <div className="flex items-center space-x-3">
+              <PhoneIcon className="w-5 h-5 text-gray-400" />
+              <div>
+                {customer.phone && (
+                  <p className="text-sm font-medium text-gray-900">{customer.phone}</p>
+                )}
+                {addresses.filter(addr => addr.phone && addr.phone !== customer.phone).map((addr, index) => (
+                  <p key={index} className="text-sm text-gray-600">
+                    {addr.phone} ({addr.type})
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex items-center space-x-3">
+            <MapPinIcon className="w-5 h-5 text-gray-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{addresses.length} addresses</p>
+              <p className="text-xs text-gray-500">Saved locations</p>
             </div>
           </div>
         </div>
@@ -495,9 +535,7 @@ export default function CustomerDetailPage() {
             {[
               { id: 'overview', name: 'Overview', icon: UserIcon },
               { id: 'orders', name: 'Orders', icon: ShoppingBagIcon, count: orders.length },
-              { id: 'addresses', name: 'Addresses', icon: MapPinIcon, count: addresses.length },
-              { id: 'wishlist', name: 'Wishlist', icon: HeartIcon, count: wishlist.length },
-              { id: 'activity', name: 'Activity', icon: ClockIcon }
+              { id: 'addresses', name: 'Addresses', icon: MapPinIcon, count: addresses.length }
             ].map((tab) => {
               const Icon = tab.icon
               return (
@@ -559,40 +597,12 @@ export default function CustomerDetailPage() {
                     <div>
                       <dt className="text-sm font-medium text-gray-600">Role</dt>
                       <dd className="mt-1">
-                        <select
-                          value={customer.role}
-                          onChange={(e) => updateCustomerRole(e.target.value as 'customer' | 'admin')}
-                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#6A41A1]"
-                        >
-                          <option value="customer">Customer</option>
-                          <option value="admin">Admin</option>
-                        </select>
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                          Customer
+                        </span>
                       </dd>
                     </div>
                   </dl>
-                </div>
-
-                {/* Quick Actions */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-                  <div className="space-y-3">
-                    <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                      <EnvelopeIcon className="w-5 h-5 mr-2" />
-                      Send Email
-                    </button>
-                    <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                      <ChatBubbleLeftIcon className="w-5 h-5 mr-2" />
-                      Add Note
-                    </button>
-                    <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                      <TagIcon className="w-5 h-5 mr-2" />
-                      Manage Tags
-                    </button>
-                    <button className="w-full flex items-center justify-center px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-                      <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
-                      Reset Password
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -603,7 +613,15 @@ export default function CustomerDetailPage() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-medium text-gray-900">Order History</h3>
-                <span className="text-sm text-gray-600">{orders.length} total orders</span>
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-gray-600">{orders.length} total orders</span>
+                  <button
+                    onClick={fetchCustomerData}
+                    className="px-3 py-1 text-xs bg-[#6A41A1] text-white rounded-lg hover:bg-[#6A41A1]/90"
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
               
               {orders.length === 0 ? (
@@ -637,9 +655,31 @@ export default function CustomerDetailPage() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                         <span>{order.order_items.length} item{order.order_items.length !== 1 ? 's' : ''}</span>
                       </div>
+                      
+                      {/* Order Items Preview */}
+                      {order.order_items.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="text-xs text-gray-500 mb-2">Items:</div>
+                          <div className="space-y-1">
+                            {order.order_items.slice(0, 3).map((item, index) => (
+                              <div key={index} className="flex justify-between text-sm">
+                                <span className="text-gray-700">
+                                  {item.quantity}x {item.title}
+                                </span>
+                                <span className="text-gray-600">₦{(item.price * item.quantity).toLocaleString()}</span>
+                              </div>
+                            ))}
+                            {order.order_items.length > 3 && (
+                              <div className="text-xs text-gray-500">
+                                +{order.order_items.length - 3} more items
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -710,95 +750,7 @@ export default function CustomerDetailPage() {
             </div>
           )}
 
-          {/* Wishlist Tab */}
-          {activeTab === 'wishlist' && (
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-medium text-gray-900">Wishlist</h3>
-                <span className="text-sm text-gray-600">{wishlist.length} items</span>
-              </div>
-              
-              {wishlist.length === 0 ? (
-                <div className="text-center py-8">
-                  <HeartIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">No wishlist items</h4>
-                  <p className="text-gray-600">This customer hasn't added any items to their wishlist.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {wishlist.map((item) => (
-                    <div key={item.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                          {item.products.featured_image ? (
-                            <Image
-                              src={item.products.featured_image}
-                              alt={item.products.title}
-                              width={64}
-                              height={64}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <ShoppingBagIcon className="w-8 h-8 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {item.products.title}
-                          </p>
-                          <p className="text-sm text-gray-600">₦{item.products.price.toLocaleString()}</p>
-                          <p className="text-xs text-gray-500">
-                            Added {new Date(item.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
 
-          {/* Activity Tab */}
-          {activeTab === 'activity' && (
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-6">Recent Activity</h3>
-              <div className="space-y-4">
-                <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <UserIcon className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Account created</p>
-                    <p className="text-sm text-gray-600">{new Date(customer.created_at).toLocaleString()}</p>
-                  </div>
-                </div>
-                
-                {orders.slice(0, 5).map((order) => (
-                  <div key={order.id} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <ShoppingBagIcon className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Order placed</p>
-                      <p className="text-sm text-gray-600">
-                        {order.order_number} - ₦{order.total.toLocaleString()}
-                      </p>
-                      <p className="text-sm text-gray-500">{new Date(order.created_at).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-                
-                {orders.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No recent activity to show
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { supabase } from '@/lib/supabase/client'
-import SyncCustomersButton from './sync-button'
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -122,20 +121,29 @@ export default function CustomersPage() {
   ]
 
   useEffect(() => {
+    console.log('🔄 CustomersPage useEffect triggered')
     fetchCustomers()
-    fetchStats()
   }, [])
 
   const refreshData = () => {
+    console.log('🔄 Refreshing customer data...')
     fetchCustomers()
     fetchStats()
   }
 
-  const fetchCustomers = async () => {
+  // Fetch stats when customers change
+  useEffect(() => {
+    console.log('🔄 Customers changed, fetching stats. Customer count:', customers.length)
+    fetchStats()
+  }, [customers])
+
+    const fetchCustomers = async () => {
     try {
       setLoading(true)
+      console.log('🔍 Fetching customers...')
       
-      // First, get all profiles
+      // Fetch customers from profiles table (this is where customer data is stored)
+      console.log('🔍 Fetching from profiles table...')
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -143,31 +151,108 @@ export default function CustomersPage() {
         .order('created_at', { ascending: false })
 
       if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
+        console.error('❌ Error fetching profiles:', profilesError)
         return
       }
 
-      // Then, get orders data for each customer
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('user_id, total, created_at, status')
-        .eq('status', 'delivered')
+      console.log('✅ Profiles fetched:', profiles?.length || 0)
+      console.log('📋 Sample profiles:', profiles?.slice(0, 3))
+      console.log('📋 All profiles:', profiles)
+      const allCustomers = profiles || []
 
-      if (ordersError) {
-        console.error('Error fetching orders:', ordersError)
+      // Fetch addresses to get phone numbers
+      let addresses: any[] = []
+      try {
+        const { data: addressesData, error: addressesError } = await supabase
+          .from('addresses')
+          .select('user_id, phone, type')
+          .not('phone', 'is', null)
+
+        if (addressesError) {
+          console.warn('⚠️ Addresses table not accessible:', addressesError)
+        } else {
+          addresses = addressesData || []
+          console.log('✅ Addresses fetched:', addresses.length)
+        }
+      } catch (addressesTableError) {
+        console.warn('⚠️ Addresses table not found, continuing without address data')
       }
 
-      // Process and combine the data
-      const customersWithStats = profiles.map(profile => {
-        const customerOrders = orders?.filter(order => order.user_id === profile.id) || []
-        const totalSpent = customerOrders.reduce((sum, order) => sum + (order.total || 0), 0)
-        const totalOrders = customerOrders.length
-        const lastOrder = customerOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+      // Fetch all orders to calculate customer stats
+      let orders: any[] = []
+      try {
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('user_id, email, total, created_at, status')
+          .not('status', 'in', ['cancelled', 'refunded']) // Include all orders except cancelled/refunded
+
+        if (ordersError) {
+          console.warn('⚠️ Orders table not accessible or doesn\'t exist:', ordersError)
+        } else {
+          orders = ordersData || []
+          console.log('✅ Orders fetched:', orders.length)
+          console.log('📋 Sample orders:', orders?.slice(0, 3))
+          console.log('📋 All orders with user_id:', orders.map(o => ({ user_id: o.user_id, email: o.email, total: o.total })))
+        }
+      } catch (ordersTableError) {
+        console.warn('⚠️ Orders table not found, continuing without order data')
+      }
+
+                 // Process and combine the data
+           const customersWithStats = allCustomers.map((customer: any) => {
+             // Match orders to this customer using user_id and email as fallback
+             const customerId = customer.id
+             const customerEmail = customer.email
+             
+             // Try to match by user_id first, then by email as fallback
+             let customerOrders = orders.filter(order => order.user_id === customerId) || []
+             
+             // If no orders found by user_id, try matching by email
+             if (customerOrders.length === 0) {
+               customerOrders = orders.filter(order => order.email === customerEmail) || []
+             }
+             
+             const totalSpent = customerOrders.reduce((sum, order) => {
+               let orderTotal = 0
+               if (typeof order.total === 'string') {
+                 orderTotal = parseFloat(order.total) || 0
+               } else if (typeof order.total === 'number') {
+                 orderTotal = order.total
+               }
+               
+               // If the total seems to be in kobo (very large numbers), convert to naira
+               if (orderTotal > 1000000) { // If more than 1 million, likely in kobo
+                 orderTotal = orderTotal / 100
+               }
+               
+               return sum + orderTotal
+             }, 0)
+             const totalOrders = customerOrders.length
+             const lastOrder = customerOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+
+             // Debug logging for order matching
+             if (customer.email === 'ogfarmboy01@gmail.com') {
+               console.log('🔍 Debug customer order matching:', {
+                 customerId,
+                 customerEmail: customer.email,
+                 allOrders: orders.length,
+                 customerOrders: customerOrders.length,
+                 customerOrdersData: customerOrders,
+                 totalSpent,
+                 totalOrders,
+                 matchingMethod: customerOrders.length > 0 ? (orders.find(o => o.user_id === customerId) ? 'user_id' : 'email') : 'none'
+               })
+             }
+
+             // Get phone numbers from addresses
+             const customerAddresses = addresses.filter(addr => addr.user_id === customerId) || []
+             const addressPhones = customerAddresses.map(addr => addr.phone).filter(Boolean)
+             const primaryPhone = customer.phone || addressPhones[0] || null
 
         // Determine customer segment
         let segment: 'vip' | 'new' | 'inactive' | 'regular' = 'regular'
         const daysSinceLastOrder = lastOrder ? Math.floor((Date.now() - new Date(lastOrder.created_at).getTime()) / (1000 * 60 * 60 * 24)) : Infinity
-        const daysSinceRegistration = Math.floor((Date.now() - new Date(profile.created_at).getTime()) / (1000 * 60 * 60 * 24))
+        const daysSinceRegistration = Math.floor((Date.now() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60 * 24))
 
         if (totalSpent > 50000) {
           segment = 'vip'
@@ -177,30 +262,33 @@ export default function CustomersPage() {
           segment = 'inactive'
         }
 
-        return {
-          id: profile.id,
-          email: profile.email,
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-          role: profile.role,
-          phone: profile.phone,
-          created_at: profile.created_at,
-          updated_at: profile.updated_at,
-          email_verified: profile.email_verified,
-          is_active: profile.is_active,
-          marketing_consent: profile.marketing_consent,
-          last_login: profile.last_login,
-          total_orders: totalOrders,
-          total_spent: totalSpent,
-          last_order_date: lastOrder?.created_at,
-          favorite_categories: [], // TODO: Implement category analysis
-          customer_segment: segment
-        }
+                     return {
+               id: customer.id || customer.user_id,
+               email: customer.email,
+               full_name: customer.full_name || customer.name,
+               avatar_url: customer.avatar_url,
+               role: customer.role || 'customer',
+               phone: primaryPhone,
+               created_at: customer.created_at,
+               updated_at: customer.updated_at,
+               email_verified: customer.email_verified,
+               is_active: customer.is_active !== false, // Default to true if not specified
+               marketing_consent: customer.marketing_consent,
+               last_login: customer.last_login || null, // Handle missing column
+               total_orders: totalOrders,
+               total_spent: totalSpent,
+               last_order_date: lastOrder?.created_at,
+               favorite_categories: [], // TODO: Implement category analysis
+               customer_segment: segment
+             }
       })
 
+      console.log('✅ Processed customers:', customersWithStats.length)
+      console.log('📋 Sample processed customers:', customersWithStats.slice(0, 3))
+      console.log('📋 All processed customers:', customersWithStats)
       setCustomers(customersWithStats)
     } catch (error) {
-      console.error('Error fetching customers:', error)
+      console.error('❌ Error fetching customers:', error)
     } finally {
       setLoading(false)
     }
@@ -208,26 +296,98 @@ export default function CustomersPage() {
 
   const fetchStats = async () => {
     try {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('total, status, created_at')
-        .eq('status', 'delivered')
+      console.log('📊 Fetching customer stats...')
+      
+      // Fetch customers count
+      const { data: customerProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'customer')
+      
+      const totalCustomers = customerProfiles?.length || 0
+      
+      // Fetch orders for revenue calculation - use the same logic as in fetchCustomers
+      let orders: any[] = []
+      try {
+        const { data: ordersData, error: ordersError } = await supabase
+          .from('orders')
+          .select('user_id, email, total, status, created_at')
+          .not('status', 'in', ['cancelled', 'refunded']) // Include all orders except cancelled/refunded
 
-      if (orders) {
-        const totalRevenue = orders.reduce((sum, order) => sum + (order.total || 0), 0)
-        const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
-
-        setStats({
-          totalCustomers: customers.length,
-          newCustomers: customers.filter(c => c.customer_segment === 'new').length,
-          vipCustomers: customers.filter(c => c.customer_segment === 'vip').length,
-          inactiveCustomers: customers.filter(c => c.customer_segment === 'inactive').length,
-          totalRevenue,
-          averageOrderValue
-        })
+        if (ordersError) {
+          console.warn('⚠️ Orders table not accessible or doesn\'t exist:', ordersError)
+        } else {
+          orders = ordersData || []
+          console.log('✅ Stats orders fetched:', orders.length)
+          console.log('📋 Sample orders for stats:', orders.slice(0, 3))
+          console.log('📋 All orders for stats:', orders.map(o => ({ user_id: o.user_id, email: o.email, total: o.total })))
+        }
+      } catch (ordersTableError) {
+        console.warn('⚠️ Orders table not found, continuing without order data')
       }
+
+      // Calculate total revenue from all orders
+      const totalRevenue = orders.reduce((sum, order) => {
+        // Handle both string and number formats, and convert from kobo to naira if needed
+        let orderTotal = 0
+        if (typeof order.total === 'string') {
+          orderTotal = parseFloat(order.total) || 0
+        } else if (typeof order.total === 'number') {
+          orderTotal = order.total
+        }
+        
+        // If the total seems to be in kobo (very large numbers), convert to naira
+        if (orderTotal > 1000000) { // If more than 1 million, likely in kobo
+          orderTotal = orderTotal / 100
+        }
+        
+        return sum + orderTotal
+      }, 0)
+      
+      const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0
+
+      // Calculate customer segments based on current customers state
+      const newCustomers = customers.filter(c => c.customer_segment === 'new').length
+      const inactiveCustomers = customers.filter(c => c.customer_segment === 'inactive').length
+
+      const newStats = {
+        totalCustomers,
+        newCustomers,
+        vipCustomers: 0, // Remove VIP customers
+        inactiveCustomers,
+        totalRevenue,
+        averageOrderValue
+      }
+
+      console.log('📊 Stats calculation:', {
+        totalCustomers: newStats.totalCustomers,
+        totalRevenue: newStats.totalRevenue,
+        ordersCount: orders.length,
+        sampleOrders: orders.slice(0, 3),
+        revenueCalculation: orders.map(o => {
+          let orderTotal = 0
+          if (typeof o.total === 'string') {
+            orderTotal = parseFloat(o.total) || 0
+          } else if (typeof o.total === 'number') {
+            orderTotal = o.total
+          }
+          
+          if (orderTotal > 1000000) {
+            orderTotal = orderTotal / 100
+          }
+          
+          return { 
+            original: o.total, 
+            parsed: orderTotal,
+            type: typeof o.total
+          }
+        })
+      })
+
+      console.log('✅ Stats calculated:', newStats)
+      setStats(newStats)
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      console.error('❌ Error fetching stats:', error)
     }
   }
 
@@ -276,31 +436,13 @@ export default function CustomersPage() {
     setSelectedCustomers(prev => 
       prev.length === filteredCustomers.length 
         ? [] 
-        : filteredCustomers.map(customer => customer.id)
+        : filteredCustomers.map(c => c.id)
     )
   }
 
   const exportCustomers = () => {
-    const csvContent = [
-      ['Email', 'Name', 'Phone', 'Total Orders', 'Total Spent', 'Segment', 'Status'],
-      ...filteredCustomers.map(customer => [
-        customer.email,
-        customer.full_name || '',
-        customer.phone || '',
-        customer.total_orders.toString(),
-        customer.total_spent.toString(),
-        customer.customer_segment,
-        customer.is_active ? 'Active' : 'Inactive'
-      ])
-    ].map(row => row.join(',')).join('\n')
-
-    const blob = new Blob([csvContent], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'customers.csv'
-    a.click()
-    window.URL.revokeObjectURL(url)
+    // TODO: Implement export functionality
+    console.log('Exporting customers:', selectedCustomers.length)
   }
 
   const bulkUpdateStatus = async (isActive: boolean) => {
@@ -418,12 +560,6 @@ export default function CustomersPage() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <SyncCustomersButton onSync={refreshData} />
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
                   <Button
                     onClick={exportCustomers}
                     className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium"
@@ -444,28 +580,21 @@ export default function CustomersPage() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mb-8"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
                 title: "Total Customers",
-                value: stats.totalCustomers,
+                value: customers.length, // Use actual customers array length instead of stats
                 icon: Users,
                 color: "from-blue-500 to-indigo-600",
                 bgColor: "bg-blue-500"
               },
               {
                 title: "New Customers",
-                value: stats.newCustomers,
+                value: customers.filter(c => c.customer_segment === 'new').length, // Use actual customers array
                 icon: UserPlus,
                 color: "from-green-500 to-emerald-600",
                 bgColor: "bg-green-500"
-              },
-              {
-                title: "VIP Customers",
-                value: stats.vipCustomers,
-                icon: Star,
-                color: "from-purple-500 to-pink-600",
-                bgColor: "bg-purple-500"
               },
               {
                 title: "Total Revenue",
@@ -477,38 +606,26 @@ export default function CustomersPage() {
             ].map((stat, index) => (
               <motion.div
                 key={stat.title}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, delay: 0.4 + index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 + index * 0.1 }}
+                className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50"
               >
-                <Card className="bg-white/90 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-200/50">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <motion.div
-                        whileHover={{ scale: 1.1, rotate: 5 }}
-                        className={`${stat.bgColor} rounded-2xl p-4 shadow-lg`}
-                      >
-                        <stat.icon className="h-8 w-8 text-white" />
-                      </motion.div>
-                      <div className={`w-16 h-16 bg-gradient-to-r ${stat.color} opacity-10 rounded-full`} />
-                    </div>
-                    <div className="space-y-2">
-                      <dt className="text-sm font-medium text-gray-600 truncate">
-                        {stat.title}
-                      </dt>
-                      <dd className="text-3xl font-bold text-gray-800">
-                        {stat.value}
-                      </dd>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">{stat.title}</p>
+                    <p className="text-3xl font-bold text-gray-800 mt-2">{stat.value}</p>
+                  </div>
+                  <div className={`p-3 rounded-xl bg-gradient-to-br ${stat.color}`}>
+                    <stat.icon className="w-6 h-6 text-white" />
+                  </div>
+                </div>
               </motion.div>
             ))}
           </div>
         </motion.div>
 
-        {/* Search and Filter Section */}
+        {/* Filters Section */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -516,11 +633,10 @@ export default function CustomersPage() {
           className="mb-8"
         >
           <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search Bar */}
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-1 gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Search customers..."
@@ -529,10 +645,6 @@ export default function CustomersPage() {
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
                   />
                 </div>
-              </div>
-              
-              {/* Filter Dropdowns */}
-              <div className="flex gap-4">
                 <select
                   value={segmentFilter}
                   onChange={(e) => setSegmentFilter(e.target.value)}
@@ -544,7 +656,6 @@ export default function CustomersPage() {
                   <option value="regular">Regular</option>
                   <option value="inactive">Inactive</option>
                 </select>
-                
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -554,7 +665,6 @@ export default function CustomersPage() {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
@@ -576,137 +686,197 @@ export default function CustomersPage() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden"
         >
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <input
-                      type="checkbox"
-                      checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                      onChange={selectAllCustomers}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                  <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white/50 divide-y divide-gray-200/50">
-                {sortedCustomers.map((customer, index) => (
-                  <motion.tr
-                    key={customer.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
-                    className="hover:bg-gray-50/50 transition-colors duration-200"
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+                />
+                <p className="text-gray-600 text-lg">Loading customers...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && sortedCustomers.length === 0 && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No customers found</h3>
+                <p className="text-gray-600 mb-4">
+                  {searchTerm || segmentFilter !== 'all' || statusFilter !== 'all' 
+                    ? 'Try adjusting your filters or search terms.'
+                    : 'No customers have been added yet.'}
+                </p>
+                {searchTerm || segmentFilter !== 'all' || statusFilter !== 'all' ? (
+                  <Button
+                    onClick={() => {
+                      setSearchTerm('')
+                      setSegmentFilter('all')
+                      setStatusFilter('all')
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    Clear Filters
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={refreshData}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Refresh
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Table */}
+          {!loading && sortedCustomers.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50/50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <input
                         type="checkbox"
-                        checked={selectedCustomers.includes(customer.id)}
-                        onChange={() => toggleCustomerSelection(customer.id)}
+                        checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
+                        onChange={selectAllCustomers}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          {customer.avatar_url ? (
-                            <Image
-                              className="h-10 w-10 rounded-full"
-                              src={customer.avatar_url}
-                              alt={customer.full_name || customer.email}
-                              width={40}
-                              height={40}
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                              <span className="text-white font-medium text-sm">
-                                {(customer.full_name || customer.email).charAt(0).toUpperCase()}
-                              </span>
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white/50 divide-y divide-gray-200/50">
+                  {sortedCustomers.map((customer, index) => (
+                    <motion.tr
+                      key={customer.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
+                      className="hover:bg-gray-50/50 transition-colors duration-200"
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomers.includes(customer.id)}
+                          onChange={() => toggleCustomerSelection(customer.id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10">
+                            {customer.avatar_url ? (
+                              <Image
+                                className="h-10 w-10 rounded-full"
+                                src={customer.avatar_url}
+                                alt={customer.full_name || customer.email}
+                                width={40}
+                                height={40}
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                <span className="text-white font-medium text-sm">
+                                  {(customer.full_name || customer.email).charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {customer.full_name || 'No Name'}
                             </div>
+                            <div className="text-sm text-gray-500">{customer.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {customer.phone ? (
+                            customer.phone
+                          ) : (
+                            <span className="text-gray-400">No Phone</span>
                           )}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {customer.full_name || 'No Name'}
-                          </div>
-                          <div className="text-sm text-gray-500">{customer.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{customer.total_orders}</div>
+                        <div className="text-sm text-gray-500">
+                          {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString() : 'No orders'}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{customer.phone || 'No Phone'}</div>
-                      <div className="text-sm text-gray-500">
-                        {customer.email_verified ? 'Verified' : 'Unverified'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{customer.total_orders}</div>
-                      <div className="text-sm text-gray-500">
-                        {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString() : 'No orders'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        ₦{customer.total_spent.toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className={segmentColors[customer.customer_segment]}>
-                        {customer.customer_segment.charAt(0).toUpperCase() + customer.customer_segment.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className={`${customer.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {customer.is_active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(customer.created_at).toLocaleDateString()}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {Math.floor((Date.now() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60 * 24))} days ago
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-green-600 hover:text-green-700"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-purple-600 hover:text-purple-700"
-                        >
-                          <Mail className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          ₦{customer.total_spent.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge className={segmentColors[customer.customer_segment]}>
+                          {customer.customer_segment.charAt(0).toUpperCase() + customer.customer_segment.slice(1)}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge className={`${customer.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {customer.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(customer.created_at).toLocaleDateString()}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {Math.floor((Date.now() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex items-center justify-center gap-2">
+                          <Link href={`/admin/customers/${customer.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-700"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <Link href={`/admin/customers/${customer.id}/edit`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-purple-600 hover:text-purple-700"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>

@@ -9,10 +9,15 @@ import Link from "next/link"
 import { DiscountPopup } from "@/components/discount-popup"
 import { AuthButtons } from "@/components/auth-buttons"
 import CartIcon from "@/components/CartIcon"
+import ProductDetailModal from "@/components/ProductDetailModal"
+import { useCartStore } from "@/lib/store/cartStore"
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   ShoppingBag,
   Home,
   Heart,
@@ -25,6 +30,7 @@ import {
   Star,
   Sparkles,
   Zap,
+  Package,
 } from "lucide-react"
 
 const frames = [
@@ -51,6 +57,12 @@ const frames = [
     title: "MiniMe",
     component: "MiniMeFrame",
     color: "from-green-50 to-emerald-100",
+  },
+  {
+    id: "others",
+    title: "Others",
+    component: "OthersFrame",
+    color: "from-purple-50 to-pink-100",
   },
   {
     id: "shop-all",
@@ -85,9 +97,14 @@ function FixedIdentityPanel({
           {/* Logo */}
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
-            className="w-12 h-12 bg-black rounded-full relative overflow-hidden mb-8 cursor-pointer shadow-lg"
+            className="w-12 h-12 bg-transparent relative overflow-hidden mb-8 cursor-pointer shadow-lg flex items-center justify-center"
           >
-            <span className="text-yellow-400 font-bold text-lg">FT</span>
+            {/* Favorite Things Logo */}
+            <img 
+              src="/favorite-things-logo.svg" 
+              alt="Favorite Things Logo" 
+              className="w-12 h-12 object-contain"
+            />
           </motion.div>
 
           {/* Navigation Dots */}
@@ -171,7 +188,7 @@ function WelcomeFrame() {
             slug: 'kiowa',
             preview_title: 'Kiowa',
             preview_description: 'Elegant sophistication with timeless pieces',
-            preview_image_url: '/placeholder.svg?height=300&width=250&text=Kiowa+Preview',
+            preview_image_url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=800&q=80',
             primary_color: '#F59E0B',
             is_active: true,
             show_on_homepage: true,
@@ -182,8 +199,8 @@ function WelcomeFrame() {
             name: 'Omogebyify',
             slug: 'omegebyify',
             preview_title: 'Omogebyify',
-            preview_description: 'Bold and contemporary fashion',
-            preview_image_url: '/placeholder.svg?height=300&width=250&text=Omogebyify+Preview',
+            preview_description: 'Bold and contemporary fashion that pushes boundaries and celebrates individuality. Modern designs with striking aesthetics.',
+            preview_image_url: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e6?auto=format&fit=crop&w=800&q=80',
             primary_color: '#DC2626',
             is_active: true,
             show_on_homepage: true,
@@ -195,7 +212,7 @@ function WelcomeFrame() {
             slug: 'minime',
             preview_title: 'MiniMe',
             preview_description: 'Playful and vibrant fashion',
-            preview_image_url: '/placeholder.svg?height=300&width=250&text=MiniMe+Preview',
+            preview_image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80',
             primary_color: '#10B981',
             is_active: true,
             show_on_homepage: true,
@@ -215,7 +232,7 @@ function WelcomeFrame() {
           slug: 'kiowa',
           preview_title: 'Kiowa',
           preview_description: 'Elegant sophistication with timeless pieces',
-          preview_image_url: '/placeholder.svg?height=300&width=250&text=Kiowa+Preview',
+          preview_image_url: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=800&q=80',
           primary_color: '#F59E0B',
           is_active: true,
           show_on_homepage: true,
@@ -226,8 +243,8 @@ function WelcomeFrame() {
           name: 'Omogebyify',
           slug: 'omegebyify',
           preview_title: 'Omogebyify',
-          preview_description: 'Bold and contemporary fashion',
-          preview_image_url: '/placeholder.svg?height=300&width=250&text=Omogebyify+Preview',
+          preview_description: 'Bold and contemporary fashion that pushes boundaries and celebrates individuality. Modern designs with striking aesthetics.',
+          preview_image_url: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e6?auto=format&fit=crop&w=800&q=80',
           primary_color: '#DC2626',
           is_active: true,
           show_on_homepage: true,
@@ -239,7 +256,7 @@ function WelcomeFrame() {
           slug: 'minime',
           preview_title: 'MiniMe',
           preview_description: 'Playful and vibrant fashion',
-          preview_image_url: '/placeholder.svg?height=300&width=250&text=MiniMe+Preview',
+          preview_image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80',
           primary_color: '#10B981',
           is_active: true,
           show_on_homepage: true,
@@ -376,14 +393,14 @@ function WelcomeFrame() {
                     whileHover={{ y: -10, scale: 1.02 }}
                     className="relative group"
                   >
-                    <div className="relative overflow-hidden rounded-2xl shadow-xl">
+                    <div className="relative overflow-hidden rounded-2xl shadow-xl bg-gradient-to-br from-gray-50 to-gray-100">
                       <img
-                        src={brand.preview_image_url || `/placeholder.svg?height=300&width=250&text=${encodeURIComponent(brand.name)}+Preview`}
+                        src={brand.preview_image_url || `https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80`}
                         alt={`${brand.preview_title || brand.name} Preview`}
-                        className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
+                        className="w-full h-64 object-scale-down transition-transform duration-700 group-hover:scale-110"
                         onError={(e) => {
                           // Fallback image on error
-                          e.currentTarget.src = `/placeholder.svg?height=300&width=250&text=${encodeURIComponent(brand.name)}+Preview`
+                          e.currentTarget.src = `https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=800&q=80`
                         }}
                         loading="lazy"
                       />
@@ -786,7 +803,194 @@ function MiniMeFrame() {
   )
 }
 
+function OthersFrame() {
+  const [others, setOthers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchOthers()
+  }, [])
+
+  const fetchOthers = async () => {
+    try {
+      const supabase = createClient()
+      
+      if (!supabase) {
+        console.error('Supabase client not available')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('others')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(6) // Show only 6 items on the home page
+      
+      if (error) {
+        console.error('Supabase error fetching others:', error)
+        // Fallback to default data if fetch fails
+        setOthers([
+          {
+            id: '1',
+            name: 'Snacks',
+            description: 'Delicious small snacks and treats',
+            image_url: 'https://images.unsplash.com/photo-1604329760661-e71dc83f8f26?auto=format&fit=crop&w=800&q=80',
+            price: 500,
+            is_active: true,
+            sort_order: 1
+          },
+          {
+            id: '2',
+            name: 'Accessories',
+            description: 'Fashion accessories and jewelry',
+            image_url: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80',
+            price: 1500,
+            is_active: true,
+            sort_order: 2
+          }
+        ])
+      } else {
+        setOthers(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching others:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 relative pt-16 lg:pt-0 pb-32 lg:pb-0">
+      <div className="container mx-auto px-6 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1 }}
+          className="text-center mb-12"
+        >
+          <Badge className="bg-purple-400 text-white mb-6 px-4 py-2 text-lg shadow-lg">
+            Snacks & Accessories
+          </Badge>
+          <h2 className="text-4xl md:text-6xl font-bold text-black mb-6 leading-tight">
+            Discover
+            <br />
+            <span className="text-purple-600">More</span>
+          </h2>
+          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            Explore our collection of delicious snacks and beautiful accessories. 
+            Perfect complements to your fashion journey.
+          </p>
+        </motion.div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full"
+            />
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          >
+            {others.map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: 0.5 + index * 0.1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="group cursor-pointer"
+              >
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                  <div className="h-64 relative overflow-hidden">
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                    <div className="absolute bottom-4 left-4 text-white">
+                      <h3 className="text-xl font-bold mb-1">{item.name}</h3>
+                      <p className="text-sm opacity-90">{item.description}</p>
+                      <p className="text-lg font-semibold mt-2">₦{item.price?.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 1 }}
+          className="text-center mt-12"
+        >
+          <Link href="/others">
+            <Button className="bg-purple-400 text-white hover:bg-purple-500 px-8 py-4 text-lg font-semibold rounded-full shadow-lg">
+              View All Items ({others.length} shown)
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
 function ShopAllFrame() {
+  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchAllProducts()
+  }, [])
+
+  const fetchAllProducts = async () => {
+    try {
+      const supabase = createClient()
+      
+      if (!supabase) {
+        console.error('Supabase client not available')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          brands (
+            name,
+            slug,
+            primary_color
+          )
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(12) // Show first 12 products
+      
+      if (error) {
+        console.error('Supabase error fetching products:', error)
+        setAllProducts([])
+      } else {
+        setAllProducts(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const categories = [
     { name: "Dresses", count: 45, color: "from-pink-400 to-rose-400" },
     { name: "Tops", count: 32, color: "from-blue-400 to-indigo-400" },
@@ -819,35 +1023,131 @@ function ShopAllFrame() {
           </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.3 }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6"
-        >
-          {categories.map((category, index) => (
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
             <motion.div
-              key={category.name}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.5 + index * 0.1 }}
-              whileHover={{ y: -5, scale: 1.05 }}
-              className="group cursor-pointer"
-            >
-              <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-                <div className={`h-32 bg-gradient-to-br ${category.color} relative overflow-hidden`}>
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/20 transition-all duration-300" />
-                  <div className="absolute bottom-2 left-2 text-white font-semibold text-sm">
-                    {category.count} items
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full"
+            />
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+          >
+            {allProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="group"
+              >
+                <div 
+                  className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
+                  onClick={() => handleProductClick(product)}
+                >
+                  <div className="relative">
+                    <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
+                      {product.featured_image ? (
+                        <img
+                          src={product.featured_image}
+                          alt={product.title}
+                          className="w-full h-full"
+                          style={{ objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div className="w-full h-full relative overflow-hidden flex items-center justify-center">
+                          <Package className="w-16 h-16 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Badges */}
+                    <div className="absolute top-2 left-2 space-y-1">
+                      {product.is_featured && (
+                        <Badge className="bg-orange-500 text-white text-xs px-2 py-1">
+                          <Star className="w-2 h-2 mr-1" />
+                          Featured
+                        </Badge>
+                      )}
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <Badge className="bg-orange-600 text-white text-xs px-2 py-1">
+                          -{Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)}%
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Brand Badge */}
+                    <div className="absolute top-2 right-2">
+                      <Badge 
+                        className="text-xs px-2 py-1"
+                        style={{ backgroundColor: product.brands?.primary_color || '#F97316' }}
+                      >
+                        {product.brands?.name || 'Unknown Brand'}
+                      </Badge>
+                    </div>
+
+                    {/* Quick Add Button */}
+                    <div className="absolute bottom-2 right-2">
+                      {product.inventory_quantity > 0 ? (
+                        <Button 
+                          size="sm" 
+                          className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await addItem({
+                                id: product.id,
+                                title: product.title,
+                                slug: product.slug,
+                                price: product.price,
+                                featured_image: product.featured_image,
+                                sku: product.sku || '',
+                                inventory_quantity: product.inventory_quantity,
+                                track_inventory: true
+                              })
+                              toast.success(`${product.title} added to cart!`)
+                            } catch (error) {
+                              toast.error('Failed to add item to cart')
+                            }
+                          }}
+                        >
+                          <Plus className="w-4 h-4 text-orange-500" />
+                        </Button>
+                      ) : (
+                        <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
+                          Out of Stock
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3">
+                    <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 text-sm">
+                      {product.title}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800">
+                        ₦{product.price?.toLocaleString()}
+                      </span>
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <span className="text-xs text-gray-500 line-through">
+                          ₦{product.compare_at_price?.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <CardContent className="p-4 text-center">
-                  <h3 className="font-semibold text-lg">{category.name}</h3>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -855,10 +1155,12 @@ function ShopAllFrame() {
           transition={{ duration: 0.8, delay: 1 }}
           className="text-center mt-12"
         >
-          <Button className="bg-blue-400 text-white hover:bg-blue-500 px-8 py-4 text-lg font-semibold rounded-full shadow-lg">
-            View All Products
-            <ArrowRight className="ml-2 w-5 h-5" />
-          </Button>
+          <Link href="/products">
+            <Button className="bg-blue-400 text-white hover:bg-blue-500 px-8 py-4 text-lg font-semibold rounded-full shadow-lg">
+              View All Products ({allProducts.length} shown)
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
         </motion.div>
       </div>
     </div>
@@ -942,9 +1244,12 @@ function FooterFrame() {
 }
 
 export default function EnhancedHomePage() {
+  const { addItem } = useCartStore()
   const [currentFrame, setCurrentFrame] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [hasInteracted, setHasInteracted] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   const navigateToFrame = (index: number) => {
     if (isTransitioning) return
@@ -977,14 +1282,24 @@ export default function EnhancedHomePage() {
 
   const handleSwipe = (event: any, info: PanInfo) => {
     // More sensitive swipe detection for better mobile UX
-    if (Math.abs(info.offset.x) > 50) {
+    if (Math.abs(info.offset.y) > 50) {
       setHasInteracted(true)
-      if (info.offset.x > 0) {
+      if (info.offset.y > 0) {
         prevFrame()
       } else {
         nextFrame()
       }
     }
+  }
+
+  const handleProductClick = (product: any) => {
+    setSelectedProduct(product)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedProduct(null)
   }
 
   const renderCurrentFrame = () => {
@@ -998,8 +1313,10 @@ export default function EnhancedHomePage() {
       case 3:
         return <MiniMeFrame />
       case 4:
-        return <ShopAllFrame />
+        return <OthersFrame />
       case 5:
+        return <ShopAllFrame />
+      case 6:
         return <FooterFrame />
       default:
         return <WelcomeFrame />
@@ -1012,48 +1329,58 @@ export default function EnhancedHomePage() {
       
       {/* Navigation Arrows */}
       <div className="hidden lg:block fixed right-8 top-1/2 transform -translate-y-1/2 z-40 space-y-4">
-        <Button
-          onClick={prevFrame}
-          disabled={currentFrame === 0}
-          className="bg-white/80 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
+        <motion.div
+          animate={{ y: [0, -5, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         >
-          <ChevronLeft className="w-6 h-6" />
-        </Button>
-        <Button
-          onClick={nextFrame}
-          disabled={currentFrame === frames.length - 1}
-          className="bg-white/80 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
+          <Button
+            onClick={prevFrame}
+            disabled={currentFrame === 0}
+            className="bg-white/80 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
+          >
+            <ChevronUp className="w-6 h-6" />
+          </Button>
+        </motion.div>
+        <motion.div
+          animate={{ y: [0, 5, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         >
-          <ChevronRight className="w-6 h-6" />
-        </Button>
+          <Button
+            onClick={nextFrame}
+            disabled={currentFrame === frames.length - 1}
+            className="bg-white/80 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
+          >
+            <ChevronDown className="w-6 h-6" />
+          </Button>
+        </motion.div>
       </div>
 
       {/* Mobile Navigation Arrows */}
       <div className="lg:hidden fixed bottom-20 right-4 z-20 flex flex-col space-y-2">
         <motion.div
           initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
+          animate={{ opacity: 1, x: 0, y: [0, -3, 0] }}
+          transition={{ delay: 0.5, y: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } }}
         >
           <Button
             onClick={prevFrame}
             disabled={currentFrame === 0}
-            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            className="bg-white/90 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronUp className="w-5 h-5" />
           </Button>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 }}
+          animate={{ opacity: 1, x: 0, y: [0, 3, 0] }}
+          transition={{ delay: 0.6, y: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } }}
         >
           <Button
             onClick={nextFrame}
             disabled={currentFrame === frames.length - 1}
-            className="bg-white/90 backdrop-blur-sm text-black hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+            className="bg-white/90 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronDown className="w-5 h-5" />
           </Button>
         </motion.div>
       </div>
@@ -1065,14 +1392,32 @@ export default function EnhancedHomePage() {
             {/* Swipe Indicator - Hide after user interaction */}
             {!hasInteracted && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="flex items-center space-x-1 text-xs text-gray-500 mr-2"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ 
+                  opacity: [0.6, 1, 0.6], 
+                  scale: [1, 1.1, 1],
+                  y: [0, -2, 0]
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity, 
+                  ease: "easeInOut"
+                }}
+                className="flex items-center space-x-1 text-xs text-gray-600 mr-2 bg-yellow-100 px-2 py-1 rounded-full"
               >
-                <ChevronLeft className="w-3 h-3" />
-                <span className="text-[10px] font-medium whitespace-nowrap">Swipe</span>
-                <ChevronRight className="w-3 h-3" />
+                <motion.div
+                  animate={{ y: [0, -2, 0] }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ChevronUp className="w-3 h-3 text-orange-500" />
+                </motion.div>
+                <span className="text-[10px] font-bold whitespace-nowrap text-gray-700">Swipe</span>
+                <motion.div
+                  animate={{ y: [0, 2, 0] }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ChevronDown className="w-3 h-3 text-orange-500" />
+                </motion.div>
               </motion.div>
             )}
             
@@ -1109,8 +1454,8 @@ export default function EnhancedHomePage() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
+        drag="y"
+        dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={0.1}
         onDragEnd={handleSwipe}
         className="w-full cursor-grab active:cursor-grabbing"
@@ -1125,6 +1470,15 @@ export default function EnhancedHomePage() {
       <div className="fixed top-4 right-4 z-50">
         <AuthButtons />
       </div>
+
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        brandColor={selectedProduct?.brands?.primary_color || '#F97316'}
+        brandName={selectedProduct?.brands?.name || 'Unknown Brand'}
+      />
     </div>
   )
 }

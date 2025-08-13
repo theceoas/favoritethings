@@ -38,6 +38,9 @@ interface ProductWithInventory {
   has_variants: boolean
   variants?: ProductVariant[]
   featured_image?: string
+  type?: 'product' | 'other' // Add type to distinguish between products and others
+  category?: 'snacks' | 'accessories' // For others items
+  price?: number // For others items
 }
 
 interface ProductVariant {
@@ -68,6 +71,7 @@ interface Promotion {
 
 export default function InventoryManagementPage() {
   const [products, setProducts] = useState<ProductWithInventory[]>([])
+  const [others, setOthers] = useState<ProductWithInventory[]>([])
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -80,6 +84,7 @@ export default function InventoryManagementPage() {
   const [saleQuantity, setSaleQuantity] = useState<number>(1)
   const [processingQuickSale, setProcessingQuickSale] = useState<string | null>(null)
   const [brandFilter, setBrandFilter] = useState('all')
+  const [itemTypeFilter, setItemTypeFilter] = useState<'all' | 'products' | 'others'>('all')
   
   const router = useRouter()
   const supabase = createClient()
@@ -109,7 +114,7 @@ export default function InventoryManagementPage() {
         return
       }
 
-      await Promise.all([loadProducts(), loadPromotions()])
+      await Promise.all([loadProducts(), loadOthers(), loadPromotions()])
       setLoading(false)
     } catch (error) {
       console.error('Error checking auth:', error)
@@ -148,6 +153,38 @@ export default function InventoryManagementPage() {
     }
   }
 
+  const loadOthers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('others')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+
+      if (!error && data) {
+        // Transform others data to match ProductWithInventory interface
+        const transformedOthers = data.map(item => ({
+          id: item.id,
+          title: item.name,
+          sku: `OTH-${item.id.slice(0, 8)}`,
+          barcode: item.barcode || null,
+          inventory_quantity: item.inventory_quantity || 0,
+          low_stock_threshold: item.low_stock_threshold || 5,
+          track_inventory: item.track_inventory !== false,
+          is_active: item.is_active,
+          has_variants: false,
+          featured_image: item.image_url,
+          type: 'other' as const,
+          category: item.category,
+          price: item.price
+        }))
+        setOthers(transformedOthers)
+      }
+    } catch (error) {
+      console.error('Error loading others:', error)
+    }
+  }
+
   const loadPromotions = async () => {
     try {
       const { data, error } = await supabase
@@ -165,7 +202,7 @@ export default function InventoryManagementPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await Promise.all([loadProducts(), loadPromotions()])
+    await Promise.all([loadProducts(), loadOthers(), loadPromotions()])
     setRefreshing(false)
     toast.success('Inventory refreshed')
   }
@@ -214,6 +251,28 @@ export default function InventoryManagementPage() {
     } catch (error) {
       console.error('Error updating variant inventory:', error)
       toast.error('Failed to update variant inventory')
+    }
+  }
+
+  const updateOthersInventory = async (itemId: string, newQuantity: number) => {
+    try {
+      const { error } = await supabase
+        .from('others')
+        .update({ inventory_quantity: newQuantity })
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      setOthers(prev => prev.map(item => 
+        item.id === itemId ? { ...item, inventory_quantity: newQuantity } : item
+      ))
+      
+      setEditingProduct(null)
+      setNewQuantity(0)
+      toast.success('Others inventory updated')
+    } catch (error) {
+      console.error('Error updating others inventory:', error)
+      toast.error('Failed to update others inventory')
     }
   }
 
@@ -278,6 +337,34 @@ export default function InventoryManagementPage() {
     }
   }
 
+  const processOthersQuickSale = async (itemId: string, quantity: number = saleQuantity) => {
+    setProcessingQuickSale(itemId)
+    try {
+      const item = others.find(o => o.id === itemId)
+      if (!item) throw new Error('Item not found')
+
+      const newQuantity = Math.max(0, item.inventory_quantity - quantity)
+      
+      const { error } = await supabase
+        .from('others')
+        .update({ inventory_quantity: newQuantity })
+        .eq('id', itemId)
+
+      if (error) throw error
+
+      setOthers(prev => prev.map(item => 
+        item.id === itemId ? { ...item, inventory_quantity: newQuantity } : item
+      ))
+      
+      toast.success(`Sale processed: ${quantity} units of ${item.title}`)
+    } catch (error) {
+      console.error('Error processing others quick sale:', error)
+      toast.error('Failed to process sale')
+    } finally {
+      setProcessingQuickSale(null)
+    }
+  }
+
   const getStockStatus = (quantity: number, threshold: number, trackInventory: boolean) => {
     if (!trackInventory) {
       return { color: 'text-gray-700', bg: 'bg-gray-100', text: 'Not Tracked' }
@@ -307,34 +394,40 @@ export default function InventoryManagementPage() {
   }
 
   const filteredProducts = products.filter(product => {
-    // Search filter - include barcode/product code search for both products and variants
-    const matchesSearch = product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.barcode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (product.variants && product.variants.some(variant => 
-                           variant.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           variant.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           variant.barcode?.toLowerCase().includes(searchTerm.toLowerCase())
-                         ))
+    const matchesSearch = 
+      product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.barcode && product.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
     
-    if (!matchesSearch) return false
+    const matchesFilter = 
+      filter === 'all' ||
+      (filter === 'low_stock' && product.track_inventory && product.inventory_quantity <= product.low_stock_threshold && product.inventory_quantity > 0) ||
+      (filter === 'out_of_stock' && product.track_inventory && product.inventory_quantity === 0) ||
+      (filter === 'inactive' && !product.is_active)
 
-    // Status filter
-    const totalStock = product.has_variants 
-      ? product.variants?.reduce((sum, v) => sum + (v.inventory_quantity || 0), 0) || 0
-      : product.inventory_quantity
+    const matchesItemType = itemTypeFilter === 'all' || itemTypeFilter === 'products'
 
-    switch (filter) {
-      case 'out_of_stock':
-        return totalStock === 0
-      case 'low_stock':
-        return totalStock > 0 && totalStock <= product.low_stock_threshold
-      case 'inactive':
-        return !product.is_active
-      default:
-        return true
-    }
+    return matchesSearch && matchesFilter && matchesItemType
   })
+
+  const filteredOthers = others.filter(item => {
+    const matchesSearch = 
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.barcode && item.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    const matchesFilter = 
+      filter === 'all' ||
+      (filter === 'low_stock' && item.track_inventory && item.inventory_quantity <= item.low_stock_threshold && item.inventory_quantity > 0) ||
+      (filter === 'out_of_stock' && item.track_inventory && item.inventory_quantity === 0) ||
+      (filter === 'inactive' && !item.is_active)
+
+    const matchesItemType = itemTypeFilter === 'all' || itemTypeFilter === 'others'
+
+    return matchesSearch && matchesFilter && matchesItemType
+  })
+
+  const allItems = [...filteredProducts, ...filteredOthers]
 
   if (loading) {
     return (
@@ -491,6 +584,19 @@ export default function InventoryManagementPage() {
                 </div>
               </div>
               
+              {/* Item Type Filter */}
+              <div className="lg:w-48">
+                <select
+                  value={itemTypeFilter}
+                  onChange={(e) => setItemTypeFilter(e.target.value as any)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                >
+                  <option value="all">All Items</option>
+                  <option value="products">Products Only</option>
+                  <option value="others">Others Only</option>
+                </select>
+              </div>
+              
               {/* Filter Dropdown */}
               <div className="lg:w-48">
                 <select
@@ -515,9 +621,9 @@ export default function InventoryManagementPage() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"
         >
-          {filteredProducts.map((product, index) => (
+          {allItems.map((item, index) => (
             <motion.div
-              key={product.id}
+              key={item.id}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
@@ -527,28 +633,39 @@ export default function InventoryManagementPage() {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-800 mb-2">{product.title}</h3>
+                      <h3 className="text-lg font-bold text-gray-800 mb-2">{item.title}</h3>
                       <div className="text-sm text-gray-600 space-y-1">
-                        <div>SKU: {product.sku}</div>
-                        {product.barcode && <div>Barcode: {product.barcode}</div>}
+                        <div>SKU: {item.sku}</div>
+                        {item.barcode && <div>Barcode: {item.barcode}</div>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {product.has_variants && (
-                        <Badge className="bg-blue-100 text-blue-800">Variants</Badge>
+                      {item.type === 'other' && (
+                        <Badge className="bg-purple-100 text-purple-800">Others</Badge>
                       )}
-                      <Badge className={`${product.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {product.is_active ? 'Active' : 'Inactive'}
+                      <Badge className={`${item.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {item.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </div>
                   </div>
 
+                  {/* Item Image */}
+                  {item.featured_image && (
+                    <div className="mb-4">
+                      <img 
+                        src={item.featured_image} 
+                        alt={item.title}
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                      />
+                    </div>
+                  )}
+
                   {/* Stock Information */}
                   <div className="space-y-3 mb-4">
-                    {product.has_variants ? (
+                    {item.type === 'product' && item.has_variants ? (
                       <div>
                         <div className="text-sm font-semibold text-gray-700 mb-2">Variants:</div>
-                        {product.variants?.map((variant) => {
+                        {item.variants?.map((variant) => {
                           const stockStatus = getStockStatus(variant.inventory_quantity, variant.low_stock_threshold, variant.track_inventory)
                           return (
                             <div key={variant.id} className="bg-gray-50 rounded-lg p-3 mb-2">
@@ -581,22 +698,22 @@ export default function InventoryManagementPage() {
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-700">Stock Level</span>
-                          <Badge className={`${getStockStatus(product.inventory_quantity, product.low_stock_threshold, product.track_inventory).bg} ${getStockStatus(product.inventory_quantity, product.low_stock_threshold, product.track_inventory).color}`}>
-                            {getStockStatus(product.inventory_quantity, product.low_stock_threshold, product.track_inventory).text}
+                          <Badge className={`${getStockStatus(item.inventory_quantity, item.low_stock_threshold, item.track_inventory).bg} ${getStockStatus(item.inventory_quantity, item.low_stock_threshold, item.track_inventory).color}`}>
+                            {getStockStatus(item.inventory_quantity, item.low_stock_threshold, item.track_inventory).text}
                           </Badge>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-lg font-bold text-gray-800">
-                            {product.inventory_quantity} units
+                            {item.inventory_quantity} units
                           </span>
                           {quickSaleMode && (
                             <Button
-                              onClick={() => processQuickSale(product.id)}
-                              disabled={processingQuickSale === product.id || product.inventory_quantity === 0}
+                              onClick={() => processQuickSale(item.id)}
+                              disabled={processingQuickSale === item.id || item.inventory_quantity === 0}
                               size="sm"
                               className="bg-orange-500 hover:bg-orange-600 text-white"
                             >
-                              {processingQuickSale === product.id ? 'Processing...' : 'Quick Sale'}
+                              {processingQuickSale === item.id ? 'Processing...' : 'Quick Sale'}
                             </Button>
                           )}
                         </div>
@@ -611,12 +728,12 @@ export default function InventoryManagementPage() {
                       size="sm"
                       className="flex-1"
                       onClick={() => {
-                        setEditingProduct(product.id)
-                        setNewQuantity(product.inventory_quantity)
+                        setEditingProduct(item.id)
+                        setNewQuantity(item.inventory_quantity)
                       }}
                     >
                       <PencilIcon className="w-4 h-4 mr-2" />
-                      Edit Stock
+                      Update Stock
                     </Button>
                   </div>
                 </CardContent>
@@ -625,43 +742,57 @@ export default function InventoryManagementPage() {
           ))}
         </motion.div>
 
-        {/* Edit Stock Modal */}
+        {/* Edit Inventory Modal */}
         <AnimatePresence>
           {editingProduct && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
             >
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-6 shadow-2xl max-w-md w-full mx-4"
+                className="bg-white rounded-2xl p-6 w-full max-w-md"
               >
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Update Stock Level</h3>
+                <h3 className="text-lg font-bold mb-4">Update Inventory</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">New Quantity</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Quantity
+                    </label>
                     <input
                       type="number"
                       min="0"
                       value={newQuantity}
                       onChange={(e) => setNewQuantity(parseInt(e.target.value) || 0)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div className="flex gap-3">
                     <Button
-                      onClick={() => updateProductInventory(editingProduct, newQuantity)}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600"
+                      onClick={() => {
+                        const item = allItems.find(i => i.id === editingProduct)
+                        if (item) {
+                          if (item.type === 'other') {
+                            updateOthersInventory(item.id, newQuantity)
+                          } else {
+                            updateProductInventory(item.id, newQuantity)
+                          }
+                        }
+                      }}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
                     >
                       Update
                     </Button>
                     <Button
+                      onClick={() => {
+                        setEditingProduct(null)
+                        setNewQuantity(0)
+                      }}
                       variant="outline"
-                      onClick={() => setEditingProduct(null)}
                       className="flex-1"
                     >
                       Cancel

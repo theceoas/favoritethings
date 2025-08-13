@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowLeft, Save, Eye, Upload, Image as ImageIcon } from "lucide-react"
+import { ArrowLeft, Save, Eye, Upload, Image as ImageIcon, Crop } from "lucide-react"
 import Link from 'next/link'
+import ImageCropper from '@/components/ImageCropper'
 
 interface Brand {
   id: string
@@ -30,6 +31,8 @@ export default function BrandPreviewEditor() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCropper, setShowCropper] = useState(false)
+  const [tempImageUrl, setTempImageUrl] = useState<string>('')
   const [formData, setFormData] = useState({
     preview_title: '',
     preview_description: '',
@@ -98,13 +101,67 @@ export default function BrandPreviewEditor() {
     }
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // In a real app, you would upload to a file storage service
-      // For now, we'll use a placeholder URL
-      const imageUrl = URL.createObjectURL(file)
-      setFormData({ ...formData, preview_image_url: imageUrl })
+      // Create a temporary URL for cropping
+      const tempUrl = URL.createObjectURL(file)
+      setTempImageUrl(tempUrl)
+      setShowCropper(true)
+    }
+  }
+
+  const handleCropComplete = async (croppedImageUrl: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Convert blob URL to file
+      const response = await fetch(croppedImageUrl)
+      const blob = await response.blob()
+      const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' })
+      
+      const supabase = createClient()
+      
+      // Create a unique filename
+      const timestamp = Date.now()
+      const fileName = `brand-preview-${brand?.slug}-${timestamp}.jpg`
+      
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('brand-images')
+        .upload(fileName, file)
+
+      if (error) throw error
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('brand-images')
+        .getPublicUrl(fileName)
+
+      // Update form data with the permanent URL
+      setFormData({ ...formData, preview_image_url: publicUrl })
+      
+      // Clean up temporary URLs
+      URL.revokeObjectURL(croppedImageUrl)
+      URL.revokeObjectURL(tempImageUrl)
+      
+      setShowCropper(false)
+      setTempImageUrl('')
+      
+    } catch (error) {
+      console.error('Error uploading cropped image:', error)
+      setError('Failed to upload cropped image. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCropCancel = () => {
+    setShowCropper(false)
+    if (tempImageUrl) {
+      URL.revokeObjectURL(tempImageUrl)
+      setTempImageUrl('')
     }
   }
 
@@ -251,6 +308,33 @@ export default function BrandPreviewEditor() {
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Enter image URL..."
                       />
+                      
+                      {/* Current Image Preview */}
+                      {formData.preview_image_url && (
+                        <div className="space-y-2">
+                          <div className="relative w-full h-32 bg-gray-100 rounded-lg overflow-hidden">
+                            <img
+                              src={formData.preview_image_url}
+                              alt="Current preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setTempImageUrl(formData.preview_image_url)
+                              setShowCropper(true)
+                            }}
+                            className="w-full"
+                          >
+                            <Crop className="w-4 h-4 mr-2" />
+                            Crop Current Image
+                          </Button>
+                        </div>
+                      )}
+                      
                       <div className="relative">
                         <input
                           type="file"
@@ -258,14 +342,35 @@ export default function BrandPreviewEditor() {
                           onChange={handleImageUpload}
                           className="hidden"
                           id="image-upload"
+                          disabled={loading}
                         />
                         <label
                           htmlFor="image-upload"
-                          className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl hover:border-gray-400 transition-colors cursor-pointer"
+                          className={`flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed rounded-xl transition-colors ${
+                            loading 
+                              ? 'border-blue-300 bg-blue-50 cursor-not-allowed' 
+                              : 'border-gray-300 hover:border-gray-400 cursor-pointer'
+                          }`}
                         >
-                          <Upload className="w-5 h-5 text-gray-400" />
-                          <span className="text-sm text-gray-600">Upload Image</span>
+                          {loading ? (
+                            <>
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full"
+                              />
+                              <span className="text-sm text-blue-600">Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Crop className="w-5 h-5 text-gray-400" />
+                              <span className="text-sm text-gray-600">Upload & Crop New Image</span>
+                            </>
+                          )}
                         </label>
+                        <p className="text-xs text-gray-500 mt-2">
+                          💡 Tip: For best results, upload local image files. The crop area is locked to 1.5:1 ratio to match your homepage cards perfectly.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -302,12 +407,12 @@ export default function BrandPreviewEditor() {
                     
                     {/* Preview Card */}
                     <div className="relative group cursor-pointer max-w-sm">
-                      <div className="relative overflow-hidden rounded-2xl shadow-xl">
+                      <div className="relative overflow-hidden rounded-2xl shadow-xl bg-gradient-to-br from-gray-50 to-gray-100">
                         {formData.preview_image_url ? (
                           <img
                             src={formData.preview_image_url}
                             alt={formData.preview_title}
-                            className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
+                            className="w-full h-64 object-scale-down transition-transform duration-700 group-hover:scale-110"
                           />
                         ) : (
                           <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
@@ -345,6 +450,16 @@ export default function BrandPreviewEditor() {
           </motion.div>
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      {showCropper && tempImageUrl && (
+        <ImageCropper
+          imageUrl={tempImageUrl}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+          aspectRatio={4/3} // More flexible aspect ratio for better composition
+        />
+      )}
     </div>
   )
 } 

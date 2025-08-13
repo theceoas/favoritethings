@@ -21,6 +21,7 @@ import {
   Users,
   Star,
   Palette,
+  Package,
 } from "lucide-react"
 
 interface Brand {
@@ -368,6 +369,16 @@ export default function BrandsPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
+                    <Link href={`/admin/brands/${brand.id}/products`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                      >
+                        <Package className="w-4 h-4 mr-2" />
+                        Products
+                      </Button>
+                    </Link>
                     <Link href={`/admin/brands/${brand.id}/preview`}>
                       <Button
                         variant="outline"

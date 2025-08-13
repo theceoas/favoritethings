@@ -24,7 +24,7 @@ export default function AdminSidebar() {
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
     { name: 'Brands', href: '/admin/brands', icon: ShoppingBagIcon },
     { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
-    { name: 'Collections', href: '/admin/collections', icon: ShoppingBagIcon },
+    { name: 'Others', href: '/admin/others', icon: ShoppingBagIcon },
     { name: 'Filters', href: '/admin/filters', icon: FunnelIcon },
     { name: 'Inventory', href: '/admin/inventory', icon: ArchiveBoxIcon },
     { name: 'Orders', href: '/admin/orders', icon: ClipboardDocumentListIcon },
@@ -45,8 +45,13 @@ export default function AdminSidebar() {
           whileHover={{ scale: 1.1, rotate: 5 }}
           className="flex items-center gap-3 cursor-pointer"
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-lg">FT</span>
+          <div className="w-10 h-10 bg-transparent rounded-xl flex items-center justify-center shadow-lg">
+            {/* Favorite Things Logo */}
+            <img 
+              src="/favorite-things-logo.svg" 
+              alt="Favorite Things Logo" 
+              className="w-10 h-10 object-contain"
+            />
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-800">Favorite Things</h2>
@@ -59,7 +64,7 @@ export default function AdminSidebar() {
       <nav className="mt-8 px-4">
         <ul className="space-y-2">
           {navigation.map((item, index) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/'))
             
             return (
               <motion.li
@@ -101,28 +106,7 @@ export default function AdminSidebar() {
         </ul>
       </nav>
 
-      {/* Quick Actions */}
-      <div className="mt-8 px-4">
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
-          <h3 className="text-xs font-semibold text-gray-600 mb-3">Quick Actions</h3>
-          <div className="space-y-2">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              className="flex items-center w-full px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-white/50 rounded-lg transition-all duration-300"
-            >
-              <EyeIcon className="w-4 h-4 mr-2" />
-              View Store
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              className="flex items-center w-full px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-white/50 rounded-lg transition-all duration-300"
-            >
-              <Cog6ToothIcon className="w-4 h-4 mr-2" />
-              Settings
-            </motion.button>
-          </div>
-        </div>
-      </div>
+
 
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200/50 bg-gradient-to-r from-gray-50/50 to-gray-100/50">

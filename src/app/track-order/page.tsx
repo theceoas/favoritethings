@@ -55,6 +55,7 @@ interface Order {
   pickup_date?: string
   pickup_time?: string
   customer_phone?: string
+  delivery_phone?: string
   special_instructions?: string
   created_at: string
   updated_at: string
@@ -467,6 +468,12 @@ function TrackOrderContent() {
                             <p className="font-medium text-gray-900">{order.tracking_number}</p>
                           </div>
                     )}
+                    {order.delivery_phone && (
+                          <div>
+                            <p className="text-sm text-gray-500">Delivery Phone</p>
+                            <p className="font-medium text-gray-900">{order.delivery_phone}</p>
+                          </div>
+                    )}
                   </div>
                 </div>
                   </div>
@@ -481,16 +488,6 @@ function TrackOrderContent() {
                 <h2 className="text-2xl font-semibold text-gray-900 mb-8 text-center">Order Progress</h2>
                 
                 <div className="relative">
-                  {/* Progress Bar */}
-                  <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 rounded-full">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(getStatusProgress(order.status) / getStatusSteps(order.delivery_method).length) * 100}%` }}
-                      transition={{ duration: 1, delay: 0.5 }}
-                      className="h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"
-                    />
-                  </div>
-
                   {/* Status Steps */}
                   <div className="relative">
                     {getStatusSteps(order.delivery_method).map((step, index) => {
@@ -508,8 +505,22 @@ function TrackOrderContent() {
                             index < getStatusSteps(order.delivery_method).length - 1 ? 'relative' : ''
                           }`}
                         >
-                          <div className="flex-shrink-0">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                          <div className="flex-shrink-0 relative">
+                            {/* Progress Bar for this step */}
+                            {index < getStatusSteps(order.delivery_method).length - 1 && (
+                              <div className="absolute top-6 left-6 w-1 h-8 bg-gray-200">
+                                {isCompleted && (
+                                  <motion.div
+                                    initial={{ height: 0 }}
+                                    animate={{ height: '100%' }}
+                                    transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                                    className="w-full bg-gradient-to-b from-yellow-400 to-orange-500"
+                                  />
+                                )}
+                              </div>
+                            )}
+                            
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center relative z-10 ${
                               isCompleted 
                                 ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-black' 
                                 : isCurrent 
@@ -522,12 +533,12 @@ function TrackOrderContent() {
 
                           <div className="ml-6 flex-1">
                             <h3 className={`font-semibold ${
-                              isCompleted ? 'text-gray-900' : 'text-gray-500'
+                              isCompleted ? 'text-gray-900' : isCurrent ? 'text-yellow-600' : 'text-gray-500'
                             }`}>
                               {step.title}
                             </h3>
                             <p className={`text-sm ${
-                              isCompleted ? 'text-gray-600' : 'text-gray-400'
+                              isCompleted ? 'text-gray-600' : isCurrent ? 'text-yellow-500' : 'text-gray-400'
                             }`}>
                               {step.description}
                             </p>

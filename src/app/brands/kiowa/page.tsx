@@ -8,8 +8,6 @@ import {
   Filter, 
   SortAsc, 
   SortDesc, 
-  Grid3X3, 
-  List, 
   Star,
   ShoppingBag,
   Heart,
@@ -17,7 +15,9 @@ import {
   Package,
   TrendingUp,
   Sparkles,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +39,7 @@ interface Product {
   inventory_quantity: number
   brand_id: string
   created_at: string
-  sku?: string // Added sku for list view
+  sku?: string
   product_filters?: {
     id: string
     filter_option: {
@@ -53,16 +53,6 @@ interface Product {
       }
     }
   }[]
-}
-
-interface Collection {
-  id: string
-  name: string
-  description?: string
-  image_url?: string
-  is_featured: boolean
-  is_active: boolean
-  product_count: number
 }
 
 interface Brand {
@@ -79,22 +69,20 @@ export default function KiowaBrandPage() {
   const router = useRouter()
   const { addItem } = useCartStore()
   const [products, setProducts] = useState<Product[]>([])
-  const [collections, setCollections] = useState<Collection[]>([])
   const [brand, setBrand] = useState<Brand | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   
-  // Filter and sort states
-  
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'name' | 'featured'>('newest')
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000])
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
   const [allFilterOptions, setAllFilterOptions] = useState<Map<string, { category: string, option: string, count: number }>>(new Map())
+  const [showBestSellers, setShowBestSellers] = useState(false)
+  const [showNewArrivals, setShowNewArrivals] = useState(false)
 
   useEffect(() => {
     fetchBrandData()
@@ -104,7 +92,6 @@ export default function KiowaBrandPage() {
     try {
       const supabase = createClient()
       
-      // Fetch brand data
       const { data: brandData, error: brandError } = await supabase
         .from('brands')
         .select('*')
@@ -114,7 +101,6 @@ export default function KiowaBrandPage() {
       if (brandError) throw brandError
       setBrand(brandData)
 
-      // Fetch products for this brand with filters
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
@@ -138,40 +124,10 @@ export default function KiowaBrandPage() {
         .order('created_at', { ascending: false })
 
       if (productsError) throw productsError
-      console.log('Kiowa products fetched:', productsData)
+      console.log('All Kiowa products:', productsData)
+      console.log('Featured products:', productsData?.filter(p => p.is_featured))
       setProducts(productsData || [])
 
-      // Fetch collections for this brand
-      const { data: collectionsData, error: collectionsError } = await supabase
-        .from('collections')
-        .select(`
-          *,
-          product_collections (
-            product_id
-          )
-        `)
-        .eq('is_active', true)
-        .eq('brand_id', brandData.id)
-        .order('sort_order', { ascending: true })
-
-      if (collectionsError) {
-        console.error('Error fetching collections:', collectionsError)
-        setCollections([])
-      } else {
-        // Add product count to collections
-        const collectionsWithCounts = collectionsData?.map(collection => {
-          const productCount = collection.product_collections?.length || 0
-          
-          return {
-            ...collection,
-            product_count: productCount
-          }
-        }) || []
-        
-        setCollections(collectionsWithCounts)
-      }
-
-      // Fetch all filter options for the filter panel
       const { data: allFilterCategories, error: filterError } = await supabase
         .from('filter_categories')
         .select(`
@@ -218,39 +174,29 @@ export default function KiowaBrandPage() {
     }
   }
 
-  // Filter and sort products
   const filteredAndSortedProducts = products
     .filter(product => {
-      // Search filter
       if (searchTerm && !product.title.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false
       }
       
-      // Price range filter - handle null/undefined/string values
       const productPrice = typeof product.price === 'string' ? parseFloat(product.price) : product.price
       if (productPrice === null || productPrice === undefined || isNaN(productPrice)) {
-        // Don't filter out products with invalid prices for now
+        return true
       } else if (productPrice < priceRange[0] || productPrice > priceRange[1]) {
         return false
-      }
-      
-      // Filter by selected filter options
-      if (selectedCollections.length > 0) {
-        const productHasSelectedFilter = selectedCollections.some(selectedFilter => {
-          const [categoryName, optionName] = selectedFilter.split('-')
-          return product.product_filters?.some(filter => 
-            filter.filter_option.filter_category.name === categoryName &&
-            filter.filter_option.name === optionName
-          )
-        })
-        if (!productHasSelectedFilter) {
-          return false
-        }
       }
       
       return true
     })
     .sort((a, b) => {
+      const aFeatured = a.is_featured ? 1 : 0
+      const bFeatured = b.is_featured ? 1 : 0
+      
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured
+      }
+      
       switch (sortBy) {
         case 'newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -261,13 +207,11 @@ export default function KiowaBrandPage() {
         case 'name':
           return a.title.localeCompare(b.title)
         case 'featured':
-          return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
-        default:
           return 0
+        default:
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }
     })
-
-
 
   const formatPrice = (price: number | string | null | undefined) => {
     if (price === null || price === undefined) return 'Price not set'
@@ -332,7 +276,6 @@ export default function KiowaBrandPage() {
       >
         <div className="container mx-auto px-4 py-16">
           <div className="text-center relative">
-            
             {brand.logo_url && (
               <motion.img
                 initial={{ scale: 0.8, opacity: 0 }}
@@ -363,529 +306,110 @@ export default function KiowaBrandPage() {
         </div>
       </motion.div>
 
-      {/* Collections Section */}
-      {collections.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="py-6 sm:py-12"
-        >
-          <div className="container mx-auto px-4">
-            <h2 className="text-xl sm:text-3xl font-bold text-amber-800 mb-4 sm:mb-8 text-center">
-              Collections
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6">
-              {collections.slice(0, 2).map((collection) => (
-                <motion.div
-                  key={collection.id}
-                  whileHover={{ y: -2, scale: 1.01 }}
-                  className="group cursor-pointer"
-                >
-                  <Card className="bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 border border-amber-200/50 overflow-hidden">
-                    <div className="relative h-24 sm:h-32 lg:h-48 bg-gradient-to-br from-amber-100 to-orange-100">
-                      {collection.image_url ? (
-                        <img
-                          src={collection.image_url}
-                          alt={collection.name}
-                          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
-                          style={{ objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full relative overflow-hidden">
-                          <Package className="w-8 h-8 sm:w-12 sm:h-12 lg:w-16 lg:h-16 text-amber-400" />
-                        </div>
-                      )}
-                      {collection.is_featured && (
-                        <Badge className="absolute top-1 right-1 sm:top-3 sm:right-3 bg-amber-500 text-white text-xs">
-                          <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                          <span className="hidden sm:inline">Featured</span>
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-2 sm:p-4 lg:p-6">
-                      <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-amber-800 mb-1 sm:mb-2 line-clamp-1">
-                        {collection.name}
-                      </h3>
-                      {collection.description && (
-                        <p className="text-amber-700 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2 hidden sm:block">
-                          {collection.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-amber-600">
-                          {collection.product_count} products
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 text-xs sm:text-sm px-1 sm:px-2"
-                        >
-                          <span className="hidden sm:inline">View</span>
-                          →
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-              
-              {/* Show remaining collections on larger screens */}
-              {collections.slice(2).map((collection) => (
-                <motion.div
-                  key={collection.id}
-                  whileHover={{ y: -2, scale: 1.01 }}
-                  className="group cursor-pointer hidden lg:block"
-                >
-                  <Card className="bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 border border-amber-200/50 overflow-hidden">
-                    <div className="relative h-48 bg-gradient-to-br from-amber-100 to-orange-100">
-                      {collection.image_url ? (
-                        <img
-                          src={collection.image_url}
-                          alt={collection.name}
-                          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
-                          style={{ objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full relative overflow-hidden">
-                          <Package className="w-16 h-16 text-amber-400" />
-                        </div>
-                      )}
-                      {collection.is_featured && (
-                        <Badge className="absolute top-3 right-3 bg-amber-500 text-white">
-                          <Sparkles className="w-3 h-3 mr-1" />
-                          Featured
-                        </Badge>
-                      )}
-                    </div>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-semibold text-amber-800 mb-2">
-                        {collection.name}
-                      </h3>
-                      {collection.description && (
-                        <p className="text-amber-700 text-sm mb-3">
-                          {collection.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-amber-600">
-                          {collection.product_count} products
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-amber-600 hover:text-amber-800 hover:bg-amber-50"
-                        >
-                          View Collection
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-              
-              {/* See All Collections Button - Mobile Only */}
-              {collections.length > 2 && (
-                <motion.div
-                  whileHover={{ y: -2, scale: 1.01 }}
-                  className="lg:hidden"
-                  onClick={() => router.push('/collections?brand=kiowa')}
-                >
-                  <Card className="bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 border border-amber-200/50 overflow-hidden cursor-pointer">
-                    <div className="relative h-24 bg-gradient-to-br from-amber-100 to-orange-100 relative overflow-hidden">
-                      <div className="text-center">
-                        <Package className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                        <span className="text-xs text-amber-600 font-medium">+{collections.length - 2} more</span>
-                      </div>
-                    </div>
-                    <CardContent className="p-2 text-center">
-                      <h3 className="text-sm font-semibold text-amber-800 mb-1">
-                        See All Collections
-                      </h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-amber-600 hover:text-amber-800 hover:bg-amber-50 text-xs px-1"
-                      >
-                        View All →
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              )}
-            </div>
-          </div>
-        </motion.section>
-      )}
-
-      {/* Featured Products Section */}
+      {/* Best Sellers Card */}
       <motion.section
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="py-12"
+        transition={{ delay: 0.5 }}
+        className="py-6 sm:py-12"
       >
         <div className="container mx-auto px-4">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-amber-800 mb-2">
-              Featured Products
-            </h2>
-            <p className="text-amber-700">
-              Discover our most popular and trending pieces
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.filter(p => p.is_featured).slice(0, 3).map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 + index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="group cursor-pointer"
-                onClick={() => handleProductClick(product)}
-              >
-                <Card className="bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-amber-200/50 overflow-hidden">
-                  <div className="relative">
-                    <div className="aspect-[3/4] bg- relative overflow-hiddengradient-to-br from-amber-100 to-orange-100">
-                      {product.featured_image ? (
-                        <img
-                          src={product.featured_image}
-                          alt={product.title}
-                          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
-                          style={{ objectFit: "cover" }}
-                        />
+          <div className="max-w-4xl mx-auto">
+            <motion.div
+              whileHover={{ y: -2, scale: 1.01 }}
+              className="group cursor-pointer"
+              onClick={() => setShowBestSellers(!showBestSellers)}
+            >
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 hover:border-amber-300 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-amber-500 p-3 rounded-full">
+                        <TrendingUp className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-amber-800 mb-1">
+                          Featured Products
+                        </h2>
+                        <p className="text-amber-700 text-sm">
+                          Our handpicked featured products
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-amber-600 font-medium">
+                        {products.filter(p => p.is_featured).length} featured products
+                      </span>
+                      {showBestSellers ? (
+                        <ChevronUp className="w-5 h-5 text-amber-600" />
                       ) : (
-                        <div className="w-full h-full relative overflow-hidden">
-                          <Package className="w-16 h-16 text-amber-400" />
-                        </div>
+                        <ChevronDown className="w-5 h-5 text-amber-600" />
                       )}
-                    </div>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-3 left-3 space-y-1">
-                      {product.is_featured && (
-                        <Badge className="bg-amber-500 text-white text-xs px-2 py-1">
-                          <Star className="w-2 h-2 mr-1" />
-                          Featured
-                        </Badge>
-                      )}
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
-                          -{getDiscountPercentage(product.price, product.compare_at_price)}%
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Quick Add Button */}
-                    <div className="absolute bottom-3 right-3">
-                      <Button size="sm" className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md">
-                        <span className="text-lg font-bold text-[#6A41A1]">+</span>
-                      </Button>
                     </div>
                   </div>
-
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-amber-800 text-sm line-clamp-2">
-                        {product.title}
-                      </h3>
-                      <Badge className="bg-amber-100 text-amber-800 text-xs ml-2 flex-shrink-0">
-                        New
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-lg font-bold text-amber-600">
-                        {formatPrice(product.price)}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-3 h-3 text-yellow-400 fill-current" />
-                        <span className="text-xs text-amber-600 font-medium">4.8</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-amber-600">
-                        124 reviews
-                      </span>
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <span className="text-xs text-gray-500 line-through">
-                          {formatPrice(product.compare_at_price)}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </motion.section>
-
-      {/* Products Section */}
-      <motion.section
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="py-12"
-      >
-        <div className="container mx-auto px-4">
-          {/* Header with stats and controls */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
-            <div>
-              <h2 className="text-3xl font-bold text-amber-800 mb-2">
-                Products
-              </h2>
-              <p className="text-amber-700">
-                {filteredAndSortedProducts.length} of {products.length} products
-              </p>
-            </div>
+                </CardContent>
+              </Card>
+            </motion.div>
             
-            {/* Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full">
-              {/* Search */}
-              <div className="relative w-full sm:w-auto">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-64 pl-10 pr-4 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white/80"
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-amber-400" />
-              </div>
-
-              {/* Sort */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full sm:w-auto px-4 py-2 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white/80"
-              >
-                <option value="newest">Newest First</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="name">Name A-Z</option>
-                <option value="featured">Featured First</option>
-              </select>
-
-              {/* View Mode */}
-              <div className="flex border border-amber-200 rounded-lg overflow-hidden">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="rounded-none"
-                >
-                  <Grid3X3 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="rounded-none bg-[#6A41A1] text-white hover:bg-[#5A3A91]"
-                  className="rounded-none"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-
-              {/* Filters Toggle */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-                className="border-amber-200 text-amber-700 hover:bg-amber-50"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
-              </Button>
-            </div>
-          </div>
-
-          {/* Filters Panel */}
-          <AnimatePresence>
-            {showFilters && (
+            {/* Expanded Best Sellers Products */}
+            {showBestSellers && (
               <motion.div
-                initial={{ opacity: 0, x: 300 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 300 }}
-                className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-50 overflow-y-auto"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6"
               >
-                <div className="p-6">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-[#4F4032]">Filters</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowFilters(false)}
-                      className="text-[#6A41A1] hover:text-[#4F4032]"
-                    >
-                      ✕
-                    </Button>
-                  </div>
-
-                  {/* Clear Filters */}
-                  <div className="mb-6">
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setPriceRange([0, 100000])
-                        setSelectedCollections([])
-                        setSearchTerm('')
-                      }}
-                      className="text-sm text-[#6A41A1] hover:text-[#4F4032] p-0"
-                    >
-                      CLEAR FILTERS
-                    </Button>
-                  </div>
-
-                  {/* Sort By */}
-                  <div className="mb-8">
-                    <h4 className="font-semibold text-[#4F4032] mb-4">SORT BY</h4>
-                    <div className="space-y-3">
-                      {[
-                        { value: 'newest', label: 'NEW' },
-                        { value: 'price-low', label: 'ASCENDING PRICE' },
-                        { value: 'price-high', label: 'DESCENDING PRICE' }
-                      ].map((option) => (
-                        <label key={option.value} className="flex items-center">
-                          <input
-                            type="radio"
-                            name="sort"
-                            value={option.value}
-                            checked={sortBy === option.value}
-                            onChange={(e) => setSortBy(e.target.value as any)}
-                            className="mr-3 text-[#6A41A1] focus:ring-[#6A41A1]"
-                          />
-                          <span className="text-sm text-[#4F4032]">{option.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Filter Categories */}
-                  {(() => {
-                    // Group by category using the state
-                    const groupedFilters = new Map<string, { option: string, count: number }[]>()
-                    Array.from(allFilterOptions.values()).forEach(filter => {
-                      if (!groupedFilters.has(filter.category)) {
-                        groupedFilters.set(filter.category, [])
-                      }
-                      groupedFilters.get(filter.category)!.push({
-                        option: filter.option,
-                        count: filter.count
-                      })
-                    })
-                    
-                    return Array.from(groupedFilters.entries()).map(([category, options]) => (
-                      <div key={category} className="mb-8">
-                        <h4 className="font-semibold text-[#4F4032] mb-4">{category.toUpperCase()}</h4>
-                        <div className="space-y-3">
-                          {options.map((option, index) => (
-                            <label key={index} className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedCollections.includes(`${category}-${option.option}`)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedCollections([...selectedCollections, `${category}-${option.option}`])
-                                  } else {
-                                    setSelectedCollections(selectedCollections.filter(id => id !== `${category}-${option.option}`))
-                                  }
-                                }}
-                                className="mr-3 text-[#6A41A1] focus:ring-[#6A41A1]"
-                              />
-                              <span className="text-sm text-[#4F4032]">
-                                {option.option} ({option.count})
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  })()}
-
-                  {/* View Results Button */}
-                  <div className="mt-8 pt-6 border-t border-gray-200">
-                    <Button
-                      onClick={() => setShowFilters(false)}
-                      className="w-full bg-[#6A41A1] hover:bg-[#5A3A91] text-white"
-                    >
-                      VIEW RESULTS
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Products Grid/List */}
-          <AnimatePresence mode="wait">
-            {viewMode === 'grid' ? (
-              <motion.div
-                key="grid"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
-              >
-                {filteredAndSortedProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ y: -5, scale: 1.02 }}
-                    className="group"
-                  >
-                    <div 
-                      className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+                  {filteredAndSortedProducts.filter(p => p.is_featured).slice(0, 5).map((product) => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      whileHover={{ y: -5, scale: 1.02 }}
+                      className="group cursor-pointer"
                       onClick={() => handleProductClick(product)}
                     >
-                      <div className="relative">
-                        <div className="aspect-[3/4] bg- relative overflow-hiddengray-100">
+                      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 aspect-[3/4]">
+                        <div className="relative h-48 bg-gray-100">
                           {product.featured_image ? (
                             <img
                               src={product.featured_image}
                               alt={product.title}
-                              className="w-full h-full"
-                              style={{ objectFit: "cover" }}
+                              className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full relative overflow-hidden">
-                              <Package className="w-16 h-16 text-gray-400" />
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-12 h-12 text-gray-400" />
                             </div>
                           )}
-                        </div>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-2 left-2 space-y-1">
+                          
                           {product.is_featured && (
-                            <Badge className="bg-amber-500 text-white text-xs px-2 py-1">
-                              <Star className="w-2 h-2 mr-1" />
+                            <Badge className="absolute top-2 left-2 bg-amber-500 text-white">
+                              <Star className="w-3 h-3 mr-1" />
                               Featured
                             </Badge>
                           )}
-                          {product.compare_at_price && product.compare_at_price > product.price && (
-                            <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
-                              -{getDiscountPercentage(product.price, product.compare_at_price)}%
+                          
+                          {product.compare_at_price && product.compare_at_price > product.price && !product.is_featured && (
+                            <Badge className="absolute top-2 left-2 bg-orange-500 text-white">
+                              {getDiscountPercentage(product.price, product.compare_at_price)}% OFF
                             </Badge>
                           )}
-                        </div>
-
-
-
-                        {/* Quick Add Button */}
-                        <div className="absolute bottom-2 right-2">
-                          <Button 
-                            size="sm" 
-                            className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
-                            onClick={async (e) => {
+                          
+                          {product.inventory_quantity === 0 && (
+                            <Badge className="absolute top-2 right-2 bg-red-500 text-white">
+                              Out of Stock
+                            </Badge>
+                          )}
+                          
+                          <Button
+                            size="sm"
+                            className="absolute bottom-2 right-2 bg-orange-500 hover:bg-orange-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
                               e.stopPropagation()
-                              try {
-                                await addItem({
+                              if (product.inventory_quantity > 0) {
+                                addItem({
                                   id: product.id,
                                   title: product.title,
                                   slug: product.slug,
@@ -896,135 +420,236 @@ export default function KiowaBrandPage() {
                                   track_inventory: true
                                 })
                                 toast.success(`${product.title} added to cart!`)
-                              } catch (error) {
-                                toast.error('Failed to add item to cart')
                               }
                             }}
                           >
-                            <span className="text-lg font-bold text-[#6A41A1]">+</span>
+                            <ShoppingBag className="w-4 h-4" />
                           </Button>
                         </div>
-                      </div>
-
-                      <div className="p-3">
-                        <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
-                          {product.title}
-                        </h3>
                         
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-[#4F4032]">
-                            {formatPrice(product.price)}
-                          </span>
-                          {product.compare_at_price && product.compare_at_price > product.price && (
-                            <span className="text-xs text-gray-500 line-through">
-                              {formatPrice(product.compare_at_price)}
+                        <div className="p-3">
+                          <h3 className="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                            {product.title}
+                          </h3>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-amber-600">
+                              {formatPrice(product.price)}
                             </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="list"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="space-y-4"
-              >
-                {filteredAndSortedProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ x: 5 }}
-                  >
-                    <Card 
-                      className="bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 border border-amber-200/50 cursor-pointer"
-                      onClick={() => handleProductClick(product)}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-6">
-                          <div className="relative w-24 h-24 flex-shrink-0">
-                            <div className="w-full h-full bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg overflow-hidden">
-                              {product.featured_image ? (
-                                <img
-                                  src={product.featured_image}
-                                  alt={product.title}
-                                  className="w-full h-full"
-                                  style={{ objectFit: "cover" }}
-                                />
-                              ) : (
-                                <div className="w-full h-full relative overflow-hidden">
-                                  <Package className="w-8 h-8 text-amber-400" />
-                                </div>
-                              )}
-                            </div>
-                            {product.is_featured && (
-                              <Badge className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs">
-                                <Star className="w-3 h-3 mr-1" />
-                              </Badge>
+                            {product.compare_at_price && product.compare_at_price > product.price && (
+                              <span className="text-xs text-gray-500 line-through">
+                                {formatPrice(product.compare_at_price)}
+                              </span>
                             )}
                           </div>
-
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-amber-800 mb-2">
-                              {product.title}
-                            </h3>
-                            <div className="flex items-center gap-4 text-sm text-amber-700 mb-2">
-                              <span>SKU: {product.sku}</span>
-                              <span>Stock: {product.inventory_quantity}</span>
-                            </div>
-
-                          </div>
-
-                          <div className="text-right">
-                            <div className="flex items-center gap-2 mb-3">
-                              <span className="text-xl font-bold text-amber-800">
-                                {formatPrice(product.price)}
-                              </span>
-                              {product.compare_at_price && product.compare_at_price > product.price && (
-                                <span className="text-sm text-gray-500 line-through">
-                                  {formatPrice(product.compare_at_price)}
-                                </span>
-                              )}
-                            </div>
-                            <Button 
-                              className="bg-amber-600 hover:bg-amber-700 text-white"
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                try {
-                                  await addItem({
-                                    id: product.id,
-                                    title: product.title,
-                                    slug: product.slug,
-                                    price: product.price,
-                                    featured_image: product.featured_image,
-                                    sku: product.sku || '',
-                                    inventory_quantity: product.inventory_quantity,
-                                    track_inventory: true
-                                  })
-                                  toast.success(`${product.title} added to cart!`)
-                                } catch (error) {
-                                  toast.error('Failed to add item to cart')
-                                }
-                              }}
-                            >
-                              <ShoppingBag className="w-4 h-4 mr-2" />
-                              Add to Cart
-                            </Button>
-                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ))}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </motion.div>
             )}
-          </AnimatePresence>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Main Products Section */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6 }}
+        className="py-6 sm:py-12"
+      >
+        <div className="container mx-auto px-4">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-amber-800 mb-2">
+                All Products
+              </h2>
+              <p className="text-amber-700">
+                {filteredAndSortedProducts.length} products available
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="border-amber-200 text-amber-700 hover:bg-amber-50"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filters
+              </Button>
+              
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="px-3 py-2 border border-amber-200 rounded-md text-amber-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              >
+                <option value="newest">Newest First</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="name">Name A-Z</option>
+                <option value="featured">Featured First</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Filters Panel */}
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="bg-white rounded-lg shadow-md p-6 mb-8"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Search */}
+                <div>
+                  <label className="block text-sm font-medium text-amber-800 mb-2">
+                    Search Products
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-amber-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div>
+                  <label className="block text-sm font-medium text-amber-800 mb-2">
+                    Price Range
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={priceRange[0]}
+                      onChange={(e) => setPriceRange([parseInt(e.target.value) || 0, priceRange[1]])}
+                      className="w-full px-3 py-2 border border-amber-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <span className="text-amber-700 self-center">-</span>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={priceRange[1]}
+                      onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value) || 100000])}
+                      className="w-full px-3 py-2 border border-amber-200 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setPriceRange([0, 100000])
+                    }}
+                    className="w-full border-amber-200 text-amber-700 hover:bg-amber-50"
+                  >
+                    Clear All Filters
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Products Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+            {filteredAndSortedProducts.map((product) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="group cursor-pointer"
+                onClick={() => handleProductClick(product)}
+              >
+                <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 aspect-[3/4]">
+                  <div className="relative h-48 bg-gray-100">
+                    {product.featured_image ? (
+                      <img
+                        src={product.featured_image}
+                        alt={product.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-12 h-12 text-gray-400" />
+                      </div>
+                    )}
+                    
+                    {product.is_featured && (
+                      <Badge className="absolute top-2 left-2 bg-amber-500 text-white">
+                        <Star className="w-3 h-3 mr-1" />
+                        Featured
+                      </Badge>
+                    )}
+                    
+                    {product.compare_at_price && product.compare_at_price > product.price && !product.is_featured && (
+                      <Badge className="absolute top-2 left-2 bg-orange-500 text-white">
+                        {getDiscountPercentage(product.price, product.compare_at_price)}% OFF
+                      </Badge>
+                    )}
+                    
+                    {product.inventory_quantity === 0 && (
+                      <Badge className="absolute top-2 right-2 bg-red-500 text-white">
+                        Out of Stock
+                      </Badge>
+                    )}
+                    
+                    <Button
+                      size="sm"
+                      className="absolute bottom-2 right-2 bg-orange-500 hover:bg-orange-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (product.inventory_quantity > 0) {
+                          addItem({
+                            id: product.id,
+                            title: product.title,
+                            slug: product.slug,
+                            price: product.price,
+                            featured_image: product.featured_image,
+                            sku: product.sku || '',
+                            inventory_quantity: product.inventory_quantity,
+                            track_inventory: true
+                          })
+                          toast.success(`${product.title} added to cart!`)
+                        }
+                      }}
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <div className="p-3">
+                    <h3 className="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
+                      {product.title}
+                    </h3>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-amber-600">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <span className="text-xs text-gray-500 line-through">
+                          {formatPrice(product.compare_at_price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
 
           {/* Empty State */}
           {filteredAndSortedProducts.length === 0 && (
@@ -1042,8 +667,7 @@ export default function KiowaBrandPage() {
               </p>
               <Button
                 onClick={() => {
-                  setPriceRange([0, 1000])
-                  setSelectedCollections([])
+                  setPriceRange([0, 100000])
                   setSearchTerm('')
                 }}
                 className="bg-amber-600 hover:bg-amber-700 text-white"

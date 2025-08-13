@@ -8,8 +8,6 @@ import {
   Filter, 
   SortAsc, 
   SortDesc, 
-  Grid3X3, 
-  List, 
   Star,
   ShoppingBag,
   Heart,
@@ -17,7 +15,9 @@ import {
   Package,
   TrendingUp,
   Sparkles,
-  Search
+  Search,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,15 +54,7 @@ interface Product {
   }[]
 }
 
-interface Collection {
-  id: string
-  name: string
-  description?: string
-  image_url?: string
-  is_featured: boolean
-  is_active: boolean
-  product_count: number
-}
+
 
 interface Brand {
   id: string
@@ -78,7 +70,6 @@ export default function MiniMeBrandPage() {
   const router = useRouter()
   const { addItem } = useCartStore()
   const [products, setProducts] = useState<Product[]>([])
-  const [collections, setCollections] = useState<Collection[]>([])
   const [brand, setBrand] = useState<Brand | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -86,12 +77,15 @@ export default function MiniMeBrandPage() {
   // Filter and sort states
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'name' | 'featured'>('newest')
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100000])
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+
   const [allFilterOptions, setAllFilterOptions] = useState<Map<string, { category: string, option: string, count: number }>>(new Map())
+  const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
+  const [showBestSellers, setShowBestSellers] = useState(false)
+  const [showNewArrivals, setShowNewArrivals] = useState(false)
 
   useEffect(() => {
     fetchBrandData()
@@ -137,38 +131,6 @@ export default function MiniMeBrandPage() {
       if (productsError) throw productsError
       console.log('MiniMe products fetched:', productsData)
       setProducts(productsData || [])
-
-      // Fetch collections for this brand (sample collections for now)
-      const sampleCollections: Collection[] = [
-        {
-          id: '1',
-          name: 'Fun & Playful',
-          description: 'Vibrant designs for the young at heart',
-          image_url: '/images/collections/fun-playful.jpg',
-          is_featured: true,
-          is_active: true,
-          product_count: productsData?.filter((p: Product) => p.title.toLowerCase().includes('fun')).length || 0
-        },
-        {
-          id: '2',
-          name: 'Bright & Bold',
-          description: 'Colorful pieces that spark joy',
-          image_url: '/images/collections/bright-bold.jpg',
-          is_featured: true,
-          is_active: true,
-          product_count: productsData?.filter((p: Product) => p.title.toLowerCase().includes('bright')).length || 0
-        },
-        {
-          id: '3',
-          name: 'Modern Comfort',
-          description: 'Cozy designs with contemporary flair',
-          image_url: '/images/collections/modern-comfort.jpg',
-          is_featured: false,
-          is_active: true,
-          product_count: productsData?.filter((p: Product) => p.title.toLowerCase().includes('comfort')).length || 0
-        }
-      ]
-      setCollections(sampleCollections)
 
       // Fetch all filter options for the filter panel
       const { data: allFilterCategories, error: filterError } = await supabase
@@ -230,16 +192,17 @@ export default function MiniMeBrandPage() {
         return false
       }
       
-      // Filter by selected filter options
-      if (selectedCollections.length > 0) {
-        const productHasSelectedFilter = selectedCollections.some(selectedFilter => {
-          const [categoryName, optionName] = selectedFilter.split('-')
-          return product.product_filters?.some(filter => 
-            filter.filter_option.filter_category.name === categoryName &&
-            filter.filter_option.name === optionName
-          )
-        })
-        if (!productHasSelectedFilter) {
+      // Filter options
+      if (selectedFilters.size > 0) {
+        const productFilterKeys = product.product_filters?.map(filter => 
+          `${filter.filter_option.filter_category.name}-${filter.filter_option.name}`
+        ) || []
+        
+        const hasMatchingFilter = Array.from(selectedFilters).some(selectedFilter => 
+          productFilterKeys.includes(selectedFilter)
+        )
+        
+        if (!hasMatchingFilter) {
           return false
         }
       }
@@ -247,6 +210,15 @@ export default function MiniMeBrandPage() {
       return true
     })
     .sort((a, b) => {
+      // Always show featured products first
+      const aFeatured = a.is_featured ? 1 : 0
+      const bFeatured = b.is_featured ? 1 : 0
+      
+      if (aFeatured !== bFeatured) {
+        return bFeatured - aFeatured
+      }
+      
+      // Then apply the selected sort
       switch (sortBy) {
         case 'newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -257,9 +229,9 @@ export default function MiniMeBrandPage() {
         case 'name':
           return a.title.localeCompare(b.title)
         case 'featured':
-          return (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)
+          return 0 // Already sorted by featured status
         default:
-          return 0
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }
     })
 
@@ -289,6 +261,22 @@ export default function MiniMeBrandPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedProduct(null)
+  }
+
+  const handleFilterToggle = (filterKey: string) => {
+    const newSelectedFilters = new Set(selectedFilters)
+    if (newSelectedFilters.has(filterKey)) {
+      newSelectedFilters.delete(filterKey)
+    } else {
+      newSelectedFilters.add(filterKey)
+    }
+    setSelectedFilters(newSelectedFilters)
+  }
+
+  const clearAllFilters = () => {
+    setSelectedFilters(new Set())
+    setPriceRange([0, 100000])
+    setSearchTerm('')
   }
 
   if (loading) {
@@ -363,8 +351,7 @@ export default function MiniMeBrandPage() {
         </div>
       </motion.div>
 
-      {/* Collections Section */}
-      {collections.length > 0 && (
+            {/* Best Sellers Card */}
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -372,62 +359,315 @@ export default function MiniMeBrandPage() {
           className="py-6 sm:py-12"
         >
           <div className="container mx-auto px-4">
-            <h2 className="text-xl sm:text-3xl font-bold text-green-800 mb-4 sm:mb-8 text-center">
-              Collections
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 lg:gap-6">
-              {collections.slice(0, 2).map((collection) => (
+          <div className="max-w-4xl mx-auto">
                 <motion.div
-                  key={collection.id}
                   whileHover={{ y: -2, scale: 1.01 }}
                   className="group cursor-pointer"
-                >
-                  <Card className="bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 border border-green-200/50 overflow-hidden">
-                    <div className="relative h-24 sm:h-32 lg:h-48 bg-gradient-to-br from-green-100 to-yellow-100">
-                      {collection.image_url ? (
-                        <img
-                          src={collection.image_url}
-                          alt={collection.name}
-                          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+              onClick={() => setShowBestSellers(!showBestSellers)}
+            >
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-green-500 p-3 rounded-full">
+                        <TrendingUp className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-1">
+                          Best Sellers
+                        </h2>
+                        <p className="text-green-700 text-sm">
+                          Our most popular products loved by customers
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-green-600 font-medium">
+                        {products.filter(p => p.is_active).length} products
+                      </span>
+                      {showBestSellers ? (
+                        <ChevronUp className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-green-600" />
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            
+            {/* Expanded Best Sellers Products */}
+            {showBestSellers && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6"
+              >
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+                  {products
+                    .filter(p => p.is_active)
+                    .sort((a, b) => (b.inventory_quantity || 0) - (a.inventory_quantity || 0)) // Sort by popularity (inventory as proxy)
+                    .map((product, index) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ y: -5, scale: 1.02 }}
+                        className="group cursor-pointer"
+                        onClick={() => handleProductClick(product)}
+                      >
+                        <div className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300">
+                          <div className="relative">
+                            <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
+                              {product.featured_image ? (
+                                <img
+                                  src={product.featured_image}
+                                  alt={product.title}
+                                  className="w-full h-full"
                           style={{ objectFit: "cover" }}
                         />
                       ) : (
                         <div className="w-full h-full relative overflow-hidden">
-                          <Package className="w-8 h-8 sm:w-12 sm:h-12 lg:w-16 lg:h-16 text-green-400" />
+                                  <Package className="w-16 h-16 text-gray-400" />
                         </div>
                       )}
-                      {collection.is_featured && (
-                        <Badge className="absolute top-1 right-1 sm:top-3 sm:right-3 bg-green-500 text-white text-xs">
-                          <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-1" />
-                          <span className="hidden sm:inline">Featured</span>
+                            </div>
+                            
+                            {/* Badges */}
+                            <div className="absolute top-2 left-2 space-y-1">
+                              <Badge className="bg-green-500 text-white text-xs px-2 py-1">
+                                <TrendingUp className="w-2 h-2 mr-1" />
+                                Popular
+                              </Badge>
+                              {product.compare_at_price && product.compare_at_price > product.price && (
+                                <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
+                                  -{getDiscountPercentage(product.price, product.compare_at_price)}%
                         </Badge>
                       )}
                     </div>
-                    <CardContent className="p-2 sm:p-4 lg:p-6">
-                      <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-green-800 mb-1 sm:mb-2 line-clamp-1">
-                        {collection.name}
+
+                            {/* Quick Add Button */}
+                            <div className="absolute bottom-2 right-2">
+                              {product.inventory_quantity > 0 ? (
+                                <Button 
+                                  size="sm" 
+                                  className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      await addItem({
+                                        id: product.id,
+                                        title: product.title,
+                                        slug: product.slug,
+                                        price: product.price,
+                                        featured_image: product.featured_image,
+                                        sku: product.sku || '',
+                                        inventory_quantity: product.inventory_quantity,
+                                        track_inventory: true
+                                      })
+                                      toast.success(`${product.title} added to cart!`)
+                                    } catch (error) {
+                                      toast.error('Failed to add item to cart')
+                                    }
+                                  }}
+                                >
+                                  <span className="text-lg font-bold text-[#6A41A1]">+</span>
+                                </Button>
+                              ) : (
+                                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+                                  <span className="text-xs font-bold text-white">×</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-3">
+                            <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
+                              {product.title}
                       </h3>
-                      {collection.description && (
-                        <p className="text-green-700 text-xs sm:text-sm mb-2 sm:mb-3 line-clamp-2 hidden sm:block">
-                          {collection.description}
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[#4F4032]">
+                                {formatPrice(product.price)}
+                              </span>
+                              {product.compare_at_price && product.compare_at_price > product.price && (
+                                <span className="text-xs text-gray-500 line-through">
+                                  {formatPrice(product.compare_at_price)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* New Arrivals Card */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+        className="py-6 sm:py-12"
+      >
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <motion.div
+              whileHover={{ y: -2, scale: 1.01 }}
+              className="group cursor-pointer"
+              onClick={() => setShowNewArrivals(!showNewArrivals)}
+            >
+              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardContent className="p-6 sm:p-8">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-green-500 p-3 rounded-full">
+                        <Sparkles className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-1">
+                          New Arrivals
+                        </h2>
+                        <p className="text-green-700 text-sm">
+                          Fresh styles just added to our collection
                         </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-green-600 font-medium">
+                        {products.filter(p => p.is_active).length} products
+                      </span>
+                      {showNewArrivals ? (
+                        <ChevronUp className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-green-600" />
                       )}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-green-600">
-                          {collection.product_count} products
-                        </span>
-                        <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800">
-                          View All
-                        </Button>
+                    </div>
                       </div>
                     </CardContent>
                   </Card>
+            </motion.div>
+            
+            {/* Expanded New Arrivals Products */}
+            {showNewArrivals && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6"
+              >
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
+                  {products
+                    .filter(p => p.is_active)
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Sort by newest first
+                    .map((product, index) => (
+                      <motion.div
+                        key={product.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ y: -5, scale: 1.02 }}
+                        className="group cursor-pointer"
+                        onClick={() => handleProductClick(product)}
+                      >
+                        <div className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300">
+                          <div className="relative">
+                            <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
+                              {product.featured_image ? (
+                                <img
+                                  src={product.featured_image}
+                                  alt={product.title}
+                                  className="w-full h-full"
+                                  style={{ objectFit: "cover" }}
+                                />
+                              ) : (
+                                <div className="w-full h-full relative overflow-hidden">
+                                  <Package className="w-16 h-16 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Badges */}
+                            <div className="absolute top-2 left-2 space-y-1">
+                              <Badge className="bg-green-500 text-white text-xs px-2 py-1">
+                                <Sparkles className="w-2 h-2 mr-1" />
+                                New
+                              </Badge>
+                              {product.compare_at_price && product.compare_at_price > product.price && (
+                                <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
+                                  -{getDiscountPercentage(product.price, product.compare_at_price)}%
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Quick Add Button */}
+                            <div className="absolute bottom-2 right-2">
+                              {product.inventory_quantity > 0 ? (
+                                <Button 
+                                  size="sm" 
+                                  className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    try {
+                                      await addItem({
+                                        id: product.id,
+                                        title: product.title,
+                                        slug: product.slug,
+                                        price: product.price,
+                                        featured_image: product.featured_image,
+                                        sku: product.sku || '',
+                                        inventory_quantity: product.inventory_quantity,
+                                        track_inventory: true
+                                      })
+                                      toast.success(`${product.title} added to cart!`)
+                                    } catch (error) {
+                                      toast.error('Failed to add item to cart')
+                                    }
+                                  }}
+                                >
+                                  <span className="text-lg font-bold text-[#6A41A1]">+</span>
+                                </Button>
+                              ) : (
+                                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+                                  <span className="text-xs font-bold text-white">×</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-3">
+                            <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
+                              {product.title}
+                            </h3>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-[#4F4032]">
+                                {formatPrice(product.price)}
+                              </span>
+                              {product.compare_at_price && product.compare_at_price > product.price && (
+                                <span className="text-xs text-gray-500 line-through">
+                                  {formatPrice(product.compare_at_price)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                 </motion.div>
               ))}
+                </div>
+              </motion.div>
+            )}
             </div>
           </div>
         </motion.section>
-      )}
 
       {/* Products Section */}
       <motion.section
@@ -473,109 +713,119 @@ export default function MiniMeBrandPage() {
                   <option value="name">Name</option>
                   <option value="featured">Featured</option>
                 </select>
+                
+
               </div>
             </div>
           </div>
 
           {/* Products Grid */}
-          <AnimatePresence>
-            {filteredAndSortedProducts.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
-              >
-                {filteredAndSortedProducts.map((product) => (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+          >
+                {filteredAndSortedProducts.map((product, index) => (
                   <motion.div
                     key={product.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ y: -2, scale: 1.01 }}
-                    className="group cursor-pointer"
-                    onClick={() => handleProductClick(product)}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ y: -5, scale: 1.02 }}
+                    className="group"
                   >
-                    <Card className="bg-white/90 backdrop-blur-sm shadow-md hover:shadow-lg transition-all duration-300 border border-green-200/50 overflow-hidden">
-                      <div className="relative h-48 sm:h-56 bg-gradient-to-br from-green-100 to-yellow-100">
+                    <div 
+                      className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
+                      onClick={() => handleProductClick(product)}
+                    >
+                      <div className="relative">
+                        <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
                         {product.featured_image ? (
                           <img
                             src={product.featured_image}
                             alt={product.title}
-                            className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+                              className="w-full h-full"
                             style={{ objectFit: "cover" }}
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-12 h-12 text-green-400" />
+                            <div className="w-full h-full relative overflow-hidden">
+                              <Package className="w-16 h-16 text-gray-400" />
                           </div>
                         )}
+                        </div>
                         
+                        {/* Badges */}
+                        <div className="absolute top-2 left-2 space-y-1">
                         {product.is_featured && (
-                          <Badge className="absolute top-2 right-2 bg-green-500 text-white text-xs">
-                            <Sparkles className="w-3 h-3 mr-1" />
+                            <Badge className="bg-green-500 text-white text-xs px-2 py-1">
+                              <Star className="w-2 h-2 mr-1" />
                             Featured
                           </Badge>
                         )}
-                        
                         {product.compare_at_price && product.compare_at_price > product.price && (
-                          <Badge className="absolute top-2 left-2 bg-red-500 text-white text-xs">
-                            {getDiscountPercentage(product.price, product.compare_at_price)}% OFF
+                            <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
+                              -{getDiscountPercentage(product.price, product.compare_at_price)}%
                           </Badge>
                         )}
                       </div>
                       
-                      <CardContent className="p-4">
-                        <h3 className="text-lg font-semibold text-green-800 mb-2 line-clamp-2">
+                        {/* Quick Add Button */}
+                        <div className="absolute bottom-2 right-2">
+                          {product.inventory_quantity > 0 ? (
+                            <Button 
+                              size="sm" 
+                              className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                try {
+                                  await addItem({
+                                    id: product.id,
+                                    title: product.title,
+                                    slug: product.slug,
+                                    price: product.price,
+                                    featured_image: product.featured_image,
+                                    sku: product.sku || '',
+                                    inventory_quantity: product.inventory_quantity,
+                                    track_inventory: true
+                                  })
+                                  toast.success(`${product.title} added to cart!`)
+                                } catch (error) {
+                                  toast.error('Failed to add item to cart')
+                                }
+                              }}
+                            >
+                              <span className="text-lg font-bold text-[#6A41A1]">+</span>
+                            </Button>
+                          ) : (
+                            <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
+                              Out of Stock
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-3">
+                        <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
                           {product.title}
                         </h3>
                         
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="text-xl font-bold text-green-800">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-[#4F4032]">
                             {formatPrice(product.price)}
                           </span>
                           {product.compare_at_price && product.compare_at_price > product.price && (
-                            <span className="text-sm text-gray-500 line-through">
+                            <span className="text-xs text-gray-500 line-through">
                               {formatPrice(product.compare_at_price)}
                             </span>
                           )}
                         </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-green-600">
-                            Stock: {product.inventory_quantity}
-                          </span>
-                          <Button 
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={async (e) => {
-                              e.stopPropagation()
-                              try {
-                                await addItem({
-                                  id: product.id,
-                                  title: product.title,
-                                  slug: product.slug,
-                                  price: product.price,
-                                  featured_image: product.featured_image,
-                                  sku: product.sku || '',
-                                  inventory_quantity: product.inventory_quantity,
-                                  track_inventory: true
-                                })
-                                toast.success(`${product.title} added to cart!`)
-                              } catch (error) {
-                                toast.error('Failed to add item to cart')
-                              }
-                            }}
-                          >
-                            <ShoppingBag className="w-4 h-4 mr-2" />
-                            Add to Cart
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   </motion.div>
                 ))}
               </motion.div>
-            )}
-          </AnimatePresence>
+                
 
           {/* Empty State */}
           {filteredAndSortedProducts.length === 0 && (
@@ -592,11 +842,7 @@ export default function MiniMeBrandPage() {
                 Try adjusting your filters or search terms
               </p>
               <Button
-                onClick={() => {
-                  setPriceRange([0, 1000])
-                  setSelectedCollections([])
-                  setSearchTerm('')
-                }}
+                onClick={clearAllFilters}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 Clear All Filters

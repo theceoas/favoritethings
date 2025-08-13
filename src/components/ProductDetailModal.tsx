@@ -188,13 +188,19 @@ export default function ProductDetailModal({
                 </div>
 
                 {/* Add to Cart Button */}
-                <Button 
-                  className="w-full py-4 text-lg font-semibold"
-                  style={{ backgroundColor: brandColor }}
-                >
-                  <ShoppingBag className="w-5 h-5 mr-2" />
-                  Add to Cart
-                </Button>
+                {product.inventory_quantity > 0 ? (
+                  <Button 
+                    className="w-full py-4 text-lg font-semibold"
+                    style={{ backgroundColor: brandColor }}
+                  >
+                    <ShoppingBag className="w-5 h-5 mr-2" />
+                    Add to Cart
+                  </Button>
+                ) : (
+                  <div className="w-full py-4 text-lg font-semibold bg-red-500 text-white rounded-lg flex items-center justify-center">
+                    <span>Out of Stock</span>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

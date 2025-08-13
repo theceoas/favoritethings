@@ -486,6 +486,7 @@ export interface Database {
           pickup_date: string | null
           pickup_time: string | null
           customer_phone: string | null
+          delivery_phone: string | null
           special_instructions: string | null
           promotion_id: string | null
           created_at: string
@@ -514,6 +515,7 @@ export interface Database {
           pickup_date?: string | null
           pickup_time?: string | null
           customer_phone?: string | null
+          delivery_phone?: string | null
           special_instructions?: string | null
           promotion_id?: string | null
           created_at?: string
@@ -542,6 +544,7 @@ export interface Database {
           pickup_date?: string | null
           pickup_time?: string | null
           customer_phone?: string | null
+          delivery_phone?: string | null
           special_instructions?: string | null
           promotion_id?: string | null
           created_at?: string
@@ -739,6 +742,38 @@ export interface Database {
           sort_order?: number
           created_at?: string
           updated_at?: string
+        }
+      }
+      admin_notifications: {
+        Row: {
+          id: string
+          title: string
+          message: string
+          type: 'new_order' | 'payment_received' | 'order_shipped' | 'order_delivered' | 'low_stock' | 'system_alert'
+          is_read: boolean
+          data: any
+          created_at: string
+          read_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          message: string
+          type: 'new_order' | 'payment_received' | 'order_shipped' | 'order_delivered' | 'low_stock' | 'system_alert'
+          is_read?: boolean
+          data?: any
+          created_at?: string
+          read_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          message?: string
+          type?: 'new_order' | 'payment_received' | 'order_shipped' | 'order_delivered' | 'low_stock' | 'system_alert'
+          is_read?: boolean
+          data?: any
+          created_at?: string
+          read_at?: string | null
         }
       }
     }

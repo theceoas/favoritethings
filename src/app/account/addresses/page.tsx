@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase/client'
 import { useCustomModal } from '@/hooks/useCustomModal'
 import CustomModal from '@/components/ui/CustomModal'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   MapPinIcon,
   PlusIcon,
@@ -15,6 +19,7 @@ import {
   HomeIcon,
   BuildingOfficeIcon
 } from '@heroicons/react/24/outline'
+import { Sparkles } from 'lucide-react'
 
 interface Address {
   id: string
@@ -126,11 +131,15 @@ export default function AddressesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50 py-12">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6A41A1] mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading addresses...</p>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full mx-auto"
+            />
+            <p className="mt-4 text-gray-600 font-medium">Loading addresses...</p>
           </div>
         </div>
       </div>
@@ -138,57 +147,115 @@ export default function AddressesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-yellow-50 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <motion.div
+          animate={{
+            rotate: 360,
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          className="absolute top-20 left-20 w-32 h-32 bg-yellow-400/20 rounded-full blur-xl"
+        />
+        <motion.div
+          animate={{
+            rotate: -360,
+            scale: [1.2, 1, 1.2],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          className="absolute bottom-32 right-32 w-24 h-24 bg-black/10 rounded-full blur-xl"
+        />
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-12 relative z-10">
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="mb-12"
+        >
+          <div className="flex items-center space-x-4 mb-6">
             <Link
               href="/account"
-              className="flex items-center text-gray-600 hover:text-gray-900"
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeftIcon className="w-5 h-5 mr-2" />
               Back to Account
             </Link>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">My Addresses</h1>
-              <p className="text-gray-600 mt-1">Manage your saved shipping and billing addresses</p>
-            </div>
-            <Link
-              href="/account/addresses/new"
-              className="inline-flex items-center px-4 py-2 bg-[#6A41A1] text-white rounded-lg hover:bg-[#6A41A1]/90 transition-colors"
+          
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="inline-flex items-center space-x-2 bg-yellow-400 text-black px-4 py-2 rounded-full mb-6 shadow-lg"
             >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Add Address
+              <Sparkles className="w-4 h-4" />
+              <span className="font-semibold">My Addresses</span>
+              <Sparkles className="w-4 h-4" />
+            </motion.div>
+
+            <h1 className="text-4xl font-bold text-black mb-4">My Addresses</h1>
+            <p className="text-lg text-gray-600">
+              Manage your saved shipping and billing addresses
+            </p>
+          </div>
+
+          <div className="text-center">
+            <Link href="/account/addresses/new">
+              <Button className="bg-yellow-400 text-black hover:bg-yellow-500 px-6 py-3 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300">
+                <PlusIcon className="w-5 h-5 mr-2" />
+                Add New Address
+              </Button>
             </Link>
           </div>
-        </div>
+        </motion.div>
 
         {/* Addresses Grid */}
-        {addresses.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-            <MapPinIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No addresses saved</h3>
-            <p className="text-gray-600 mb-6">
-              Add your first address to make checkout faster and easier.
-            </p>
-            <Link
-              href="/account/addresses/new"
-              className="inline-flex items-center px-6 py-3 bg-[#6A41A1] text-white rounded-lg hover:bg-[#6A41A1]/90 transition-colors"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Add Your First Address
-            </Link>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {addresses.map((address) => (
-              <div
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+        >
+          {addresses.length === 0 ? (
+            <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-white to-gray-50 p-12 text-center">
+              <MapPinIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No addresses saved</h3>
+              <p className="text-gray-600 mb-6">
+                Add your first address to make checkout faster and easier.
+              </p>
+              <Link href="/account/addresses/new">
+                <Button className="bg-yellow-400 text-black hover:bg-yellow-500 px-6 py-3 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300">
+                  <PlusIcon className="w-5 h-5 mr-2" />
+                  Add Your First Address
+                </Button>
+              </Link>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {addresses.map((address, index) => (
+              <motion.div
                 key={address.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative group"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + index * 0.1, duration: 0.6 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="group cursor-pointer"
               >
+                <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-white to-gray-50">
+                  <CardContent className="p-6">
                 {/* Address Type Badge */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-2">
@@ -271,22 +338,35 @@ export default function AddressesPage() {
                     </button>
                   )}
                 </div>
-              </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))}
           </div>
         )}
+        </motion.div>
 
         {/* Tips */}
-        <div className="mt-12 bg-blue-50 border border-blue-200 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Address Tips</h3>
-          <ul className="space-y-2 text-blue-800 text-sm">
-            <li>• Your default address will be automatically selected at checkout</li>
-            <li>• You can save both shipping and billing addresses for faster checkout</li>
-            <li>• Contact information is saved for store pickup orders</li>
-            <li>• All your saved addresses are private and secure</li>
-          </ul>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.8 }}
+          className="mt-12"
+        >
+          <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-blue-50 to-blue-100">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">💡 Address Tips</h3>
+              <ul className="space-y-2 text-blue-800 text-sm">
+                <li>• Your default address will be automatically selected at checkout</li>
+                <li>• You can save both shipping and billing addresses for faster checkout</li>
+                <li>• Contact information is saved for store pickup orders</li>
+                <li>• All your saved addresses are private and secure</li>
+              </ul>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
+    </div>
       
       {/* Custom Modal */}
       <CustomModal

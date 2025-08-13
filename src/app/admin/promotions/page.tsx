@@ -205,11 +205,76 @@ export default function PromotionsPage() {
   const handleSendPromo = async (promo: Promotion) => {
     setIsSendingPromo(true);
     try {
-      // Simulate sending promo (replace with actual email logic)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success(`Promotion ${promo.code} sent successfully!`);
+      // Get brand information for the promotion
+      const brand = brands.find(b => b.id === promo.brand_id);
+      
+      // Prepare promotion data for webhook
+      const promotionData = {
+        id: promo.id,
+        code: promo.code,
+        description: promo.description,
+        discount_percent: promo.discount_percent,
+        valid_from: promo.valid_from,
+        valid_until: promo.valid_until,
+        is_active: promo.is_active,
+        usage_limit: promo.usage_limit,
+        times_used: promo.times_used,
+        created_at: promo.created_at,
+        updated_at: promo.updated_at,
+        brand: brand ? {
+          id: brand.id,
+          name: brand.name,
+          slug: brand.slug,
+          primary_color: brand.primary_color,
+          secondary_color: brand.secondary_color
+        } : null,
+        // Additional metadata
+        sent_at: new Date().toISOString(),
+        sent_by: 'admin_panel',
+        webhook_url: 'https://n8n.srv942568.hstgr.cloud/webhook-test/7c39c404-0fd6-4e17-8f09-c791402fe02a'
+      };
+
+      console.log('🚀 Sending promotion to webhook:', promotionData);
+
+      // Send to n8n webhook with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch('https://n8n.srv942568.hstgr.cloud/webhook-test/7c39c404-0fd6-4e17-8f09-c791402fe02a', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(promotionData),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Webhook request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const webhookResponse = await response.json();
+      console.log('✅ Webhook response:', webhookResponse);
+
+      toast.success(`Promotion ${promo.code} sent successfully to webhook!`);
     } catch (error: any) {
-      toast.error(`Failed to send promotion: ${error.message}`);
+      console.error('❌ Error sending promotion to webhook:', error);
+      
+      let errorMessage = 'Failed to send promotion';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (error.message.includes('webhook')) {
+        errorMessage = `Webhook error: ${error.message}`;
+      } else {
+        errorMessage = error.message || 'Unknown error occurred';
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsSendingPromo(false);
     }
@@ -566,8 +631,9 @@ export default function PromotionsPage() {
                         size="sm"
                         onClick={() => handleSendPromo(promo)}
                         disabled={isSendingPromo}
+                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
                       >
-                        {isSendingPromo ? 'Sending...' : 'Send'}
+                        {isSendingPromo ? 'Sending...' : 'Send to Webhook'}
                       </Button>
                     </TableCell>
                   </motion.tr>

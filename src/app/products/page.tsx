@@ -1,0 +1,394 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+import ProductDetailModal from '@/components/ProductDetailModal'
+import { useCartStore } from '@/lib/store/cartStore'
+import { toast } from 'sonner'
+import { 
+  ArrowLeft,
+  Search,
+  Filter,
+  ShoppingBag,
+  Star,
+  Package,
+  Plus
+} from "lucide-react"
+
+interface Product {
+  id: string
+  title: string
+  slug: string
+  description?: string
+  featured_image?: string
+  price: number
+  compare_at_price?: number
+  is_featured: boolean
+  is_active: boolean
+  inventory_quantity: number
+  created_at: string
+  updated_at: string
+  sku?: string
+  brands?: {
+    name: string
+    slug: string
+    primary_color: string
+  }
+}
+
+export default function ProductsPage() {
+  const { addItem } = useCartStore()
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [brandFilter, setBrandFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('newest')
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  const fetchProducts = async () => {
+    try {
+      const supabase = createClient()
+      
+      if (!supabase) {
+        console.error('Supabase client not available')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          brands (
+            name,
+            slug,
+            primary_color
+          )
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Supabase error fetching products:', error)
+        setProducts([])
+      } else {
+        setProducts(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching products:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product)
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedProduct(null)
+  }
+
+  const handleAddToCart = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await addItem({
+        id: product.id,
+        title: product.title,
+        slug: product.slug,
+        price: product.price,
+        featured_image: product.featured_image,
+        sku: product.sku || '',
+        inventory_quantity: product.inventory_quantity,
+        track_inventory: true
+      })
+      toast.success(`${product.title} added to cart!`)
+    } catch (error) {
+      toast.error('Failed to add item to cart')
+    }
+  }
+
+  const formatPrice = (price: number | string | null | undefined) => {
+    if (price === null || price === undefined) return 'Price not set'
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price
+    if (isNaN(numPrice)) return 'Price not set'
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+    }).format(numPrice)
+  }
+
+  const getDiscountPercentage = (price: number | string | null | undefined, comparePrice?: number | string | null | undefined) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price
+    const numComparePrice = typeof comparePrice === 'string' ? parseFloat(comparePrice) : comparePrice
+    
+    if (!numComparePrice || !numPrice || isNaN(numPrice) || isNaN(numComparePrice) || numComparePrice <= numPrice) return 0
+    return Math.round(((numComparePrice - numPrice) / numComparePrice) * 100)
+  }
+
+  const filteredAndSortedProducts = products
+    .filter(product => {
+      const matchesSearch = 
+        product.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.brands?.name.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      const matchesBrand = brandFilter === 'all' || product.brands?.slug === brandFilter
+
+      return matchesSearch && matchesBrand
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'price-low':
+          return a.price - b.price
+        case 'price-high':
+          return b.price - a.price
+        case 'name-asc':
+          return a.title.localeCompare(b.title)
+        case 'name-desc':
+          return b.title.localeCompare(a.title)
+        default:
+          return 0
+      }
+    })
+
+  const uniqueBrands = Array.from(new Set(products.map(p => p.brands?.slug).filter(Boolean)))
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Header */}
+      <div className="bg-white/90 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-40">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800">
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">All Products</h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/cart">
+                <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-800">
+                  <ShoppingBag className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200/50 mb-8">
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col sm:flex-row flex-1 gap-4 w-full">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                />
+              </div>
+              <select
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+              >
+                <option value="all">All Brands</option>
+                {uniqueBrands.map(brand => (
+                  <option key={brand} value={brand}>
+                    {products.find(p => p.brands?.slug === brand)?.brands?.name || brand}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="name-asc">Name: A to Z</option>
+                <option value="name-desc">Name: Z to A</option>
+              </select>
+            </div>
+            <div className="text-sm text-gray-600">
+              {filteredAndSortedProducts.length} products found
+            </div>
+          </div>
+        </div>
+
+        {/* Products Grid */}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full"
+            />
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+          >
+            {filteredAndSortedProducts.map((product, index) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="group"
+              >
+                <div 
+                  className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
+                  onClick={() => handleProductClick(product)}
+                >
+                  <div className="relative">
+                    <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
+                      {product.featured_image ? (
+                        <img
+                          src={product.featured_image}
+                          alt={product.title}
+                          className="w-full h-full"
+                          style={{ objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div className="w-full h-full relative overflow-hidden flex items-center justify-center">
+                          <Package className="w-16 h-16 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Badges */}
+                    <div className="absolute top-2 left-2 space-y-1">
+                      {product.is_featured && (
+                        <Badge className="bg-orange-500 text-white text-xs px-2 py-1">
+                          <Star className="w-2 h-2 mr-1" />
+                          Featured
+                        </Badge>
+                      )}
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <Badge className="bg-orange-600 text-white text-xs px-2 py-1">
+                          -{getDiscountPercentage(product.price, product.compare_at_price)}%
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Brand Badge */}
+                    <div className="absolute top-2 right-2">
+                      <Badge 
+                        className="text-xs px-2 py-1"
+                        style={{ backgroundColor: product.brands?.primary_color || '#F97316' }}
+                      >
+                        {product.brands?.name || 'Unknown Brand'}
+                      </Badge>
+                    </div>
+
+                    {/* Quick Add Button */}
+                    <div className="absolute bottom-2 right-2">
+                      {product.inventory_quantity > 0 ? (
+                        <Button 
+                          size="sm" 
+                          className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
+                          onClick={(e) => handleAddToCart(product, e)}
+                        >
+                          <Plus className="w-4 h-4 text-orange-500" />
+                        </Button>
+                      ) : (
+                        <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
+                          Out of Stock
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3">
+                    <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 text-sm">
+                      {product.title}
+                    </h3>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <span className="text-xs text-gray-500 line-through">
+                          {formatPrice(product.compare_at_price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+
+        {/* Empty State */}
+        {!loading && filteredAndSortedProducts.length === 0 && (
+          <div className="text-center py-20">
+            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShoppingBag className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No products found</h3>
+            <p className="text-gray-600 mb-4">
+              {searchTerm || brandFilter !== 'all' 
+                ? 'Try adjusting your search or filters.'
+                : 'No products are currently available.'
+              }
+            </p>
+            {(searchTerm || brandFilter !== 'all') && (
+              <Button 
+                onClick={() => {
+                  setSearchTerm('')
+                  setBrandFilter('all')
+                }}
+                variant="outline"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        product={selectedProduct}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        brandColor={selectedProduct?.brands?.primary_color || '#F97316'}
+        brandName={selectedProduct?.brands?.name || 'Unknown Brand'}
+      />
+    </div>
+  )
+} 

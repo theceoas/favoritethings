@@ -20,7 +20,9 @@ import {
   ArrowLeft,
   Sparkles,
   Truck,
-  MapPin
+  MapPin,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -80,6 +82,7 @@ export default function CheckoutPage() {
   const [saveAddress, setSaveAddress] = useState(false)
   const [savedAddresses, setSavedAddresses] = useState<any[]>([])
   const [selectedAddressId, setSelectedAddressId] = useState<string>('')
+  const [showOtherAddresses, setShowOtherAddresses] = useState(false)
   const [promoCode, setPromoCode] = useState('')
   const [promoDiscount, setPromoDiscount] = useState(0)
   const [appliedPromo, setAppliedPromo] = useState<any>(null)
@@ -107,9 +110,10 @@ export default function CheckoutPage() {
 
         // Load saved addresses
         const { data: addresses } = await supabase
-          .from('customer_addresses')
+          .from('addresses')
             .select('*')
             .eq('user_id', user.id)
+            .order('is_default', { ascending: false })
             .order('created_at', { ascending: false })
 
         if (addresses) {
@@ -628,7 +632,7 @@ export default function CheckoutPage() {
           payment_status: 'paid',
           payment_method: isTestPayment ? 'Test Payment' : 'Paystack',
           payment_reference: paymentReference,
-          status: 'processing' // Changed from 'confirmed' to 'processing' which is more standard
+          status: 'confirmed' // Keep as confirmed after payment
         })
         .eq('id', order.id)
         .select() // Add select to see the updated data
@@ -640,6 +644,89 @@ export default function CheckoutPage() {
         throw new Error(`Failed to update payment status: ${paymentUpdate.error.message}`)
       } else {
         console.log('✅ Payment status updated successfully:', paymentUpdate.data)
+      }
+
+      // 🔥 NEW: Create notification for payment received
+      try {
+        await fetch('/api/notifications/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'payment_received',
+            orderNumber: order.order_number,
+            orderId: order.id,
+            amount: order.total
+          })
+        })
+        console.log('✅ Payment notification created')
+      } catch (notificationError) {
+        console.error('❌ Failed to create payment notification:', notificationError)
+        // Don't fail the payment success for notification errors
+      }
+
+      // 🔥 NEW: Fire webhook after successful payment
+      console.log('🌐 Checkout - Firing webhook for successful payment...')
+      try {
+        // Fetch order items from database for complete order information
+        const { data: orderItems, error: itemsError } = await supabase
+          .from('order_items')
+          .select(`
+            id,
+            product_id,
+            product_variant_id,
+            title,
+            variant_title,
+            sku,
+            quantity,
+            price,
+            total,
+            size,
+            color,
+            material
+          `)
+          .eq('order_id', order.id)
+
+        if (itemsError) {
+          console.warn('⚠️ Could not fetch order items for webhook:', itemsError)
+        }
+
+        const webhookData = {
+          order_id: order.id,
+          order_number: order.order_number,
+          customer_email: order.email,
+          customer_phone: order.customer_phone,
+          total_amount: order.total,
+          currency: order.currency,
+          status: order.status,
+          payment_status: 'paid',
+          payment_method: isTestPayment ? 'Test Payment' : 'Paystack',
+          payment_reference: paymentReference,
+          delivery_method: order.delivery_method,
+          items: orderItems || items, // Use database items if available, fallback to cart items
+          shipping_address: order.shipping_address,
+          billing_address: order.billing_address,
+          created_at: order.created_at,
+          paid_at: new Date().toISOString(),
+          webhook_type: 'payment_successful',
+          is_test_payment: isTestPayment
+        }
+
+        const webhookResponse = await fetch('https://n8n.srv942568.hstgr.cloud/webhook-test/54af3979-4f0b-4213-9e94-7b521050e369', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(webhookData)
+        })
+
+        if (webhookResponse.ok) {
+          console.log('✅ Checkout - Webhook fired successfully after payment')
+        } else {
+          console.warn('⚠️ Checkout - Webhook failed:', webhookResponse.status, webhookResponse.statusText)
+        }
+      } catch (webhookError) {
+        console.error('❌ Checkout - Webhook error:', webhookError)
+        // Don't fail the payment success for webhook errors
       }
 
       // Save address if user requested it and is logged in
@@ -773,11 +860,7 @@ export default function CheckoutPage() {
         }
       }
 
-      console.log('🧹 Clearing cart...')
-      clearCart()
-      console.log('✅ Cart cleared')
-
-      // Redirect to thank you page with order details
+      // Build thank you page URL first
       const thankYouParams = new URLSearchParams({
         order: order.order_number,
         email: shippingAddress.email,
@@ -788,22 +871,83 @@ export default function CheckoutPage() {
       if (deliveryMethod === 'pickup' && pickupDate && pickupTime) {
         const pickupDetails = {
           date: pickupDate,
-          time: pickupTime // Use short time value instead of full label
+          time: pickupTime
         }
-        thankYouParams.append('pickup', JSON.stringify(pickupDetails)) // Remove encoding for shorter URL
+        thankYouParams.append('pickup', JSON.stringify(pickupDetails))
       }
 
       const redirectUrl = `/thank-you?${thankYouParams.toString()}`
-      console.log('🔄 Redirecting to thank you page:', redirectUrl)
+      console.log('🔄 Preparing redirect to thank you page:', redirectUrl)
       console.log('📦 Order result:', order)
       
-      // Use window.location.href for more reliable redirect
-      console.log('🌐 Using window.location.href for redirect')
-      window.location.href = redirectUrl
+      // Set a flag to prevent cart redirects
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('checkout_completed', 'true')
+        sessionStorage.setItem('redirect_to_thank_you', redirectUrl)
+      }
+      
+      // Clear cart AFTER preparing redirect URL
+      console.log('🧹 Clearing cart...')
+      clearCart()
+      console.log('✅ Cart cleared')
+
+      // Force redirect immediately with multiple methods
+      console.log('🚀 Starting redirect process...')
+      
+      // Method 1: Use window.location.replace for immediate redirect
+      try {
+        window.location.replace(redirectUrl)
+        console.log('✅ Window.location.replace redirect initiated')
+      } catch (redirectError) {
+        console.warn('⚠️ Window.location.replace failed, trying router.push:', redirectError)
+        
+        // Method 2: Try router.push
+        try {
+          router.push(redirectUrl)
+          console.log('✅ Router.push redirect initiated')
+        } catch (routerError) {
+          console.warn('⚠️ Router.push failed, using window.location.href:', routerError)
+          
+          // Method 3: Fallback to window.location.href
+          window.location.href = redirectUrl
+        }
+      }
+      
+      // Method 4: Final backup redirect after a short delay
+      setTimeout(() => {
+        if (window.location.pathname !== '/thank-you') {
+          console.log('🔄 Final backup redirect triggered')
+          window.location.href = redirectUrl
+        }
+      }, 500)
 
     } catch (error: any) {
       console.error('💥 Payment verification error:', error)
-      setError(error.message || 'Payment verification failed')
+      
+      // Even if payment verification fails, try to redirect to thank you page
+      // since the order was already created successfully
+      if (order && order.order_number) {
+        console.log('🔄 Payment verification failed, but order was created. Attempting redirect...')
+        
+        const thankYouParams = new URLSearchParams({
+          order: order.order_number,
+          email: shippingAddress.email,
+          delivery: deliveryMethod,
+          payment: 'pending' // Mark as pending since verification failed
+        })
+
+        const redirectUrl = `/thank-you?${thankYouParams.toString()}`
+        console.log('🔄 Redirecting despite payment verification error:', redirectUrl)
+        
+        try {
+          router.push(redirectUrl)
+        } catch (redirectError) {
+          console.warn('⚠️ Router redirect failed, using window.location:', redirectError)
+          window.location.href = redirectUrl
+        }
+      } else {
+        setError(error.message || 'Payment verification failed')
+      }
     } finally {
       console.log('🏁 Payment process completed')
       setLoading(false)
@@ -1312,6 +1456,121 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+                {/* Saved Addresses Selection */}
+                {user && savedAddresses.length > 0 && deliveryMethod === 'shipping' && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Saved Addresses</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="radio"
+                          id="new-address"
+                          name="address-selection"
+                          value=""
+                          checked={selectedAddressId === ''}
+                          onChange={(e) => handleAddressSelection(e.target.value)}
+                          className="w-4 h-4 text-yellow-400 border-gray-300 focus:ring-yellow-400"
+                        />
+                        <label htmlFor="new-address" className="text-sm text-gray-700">
+                          Enter new address
+                        </label>
+                      </div>
+                      
+                      {/* Default Address - Always Visible */}
+                      {savedAddresses.filter(addr => addr.is_default).map((address) => (
+                        <div key={address.id} className="flex items-start space-x-3">
+                          <input
+                            type="radio"
+                            id={`address-${address.id}`}
+                            name="address-selection"
+                            value={address.id}
+                            checked={selectedAddressId === address.id}
+                            onChange={(e) => handleAddressSelection(e.target.value)}
+                            className="w-4 h-4 text-yellow-400 border-gray-300 focus:ring-yellow-400 mt-1"
+                          />
+                          <label htmlFor={`address-${address.id}`} className="flex-1 cursor-pointer">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 hover:bg-yellow-100 transition-colors">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium text-gray-900">
+                                  {address.first_name} {address.last_name}
+                                </span>
+                                <span className="px-2 py-1 text-xs font-medium bg-yellow-500 text-white rounded-full">
+                                  Default
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                {address.address_line_1}
+                                {address.address_line_2 && (
+                                  <div>{address.address_line_2}</div>
+                                )}
+                                <div>{address.city}, {address.state} {address.postal_code}</div>
+                                <div>{address.country}</div>
+                                {address.phone && <div>{address.phone}</div>}
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                      
+                      {/* Other Addresses - Collapsible */}
+                      {savedAddresses.filter(addr => !addr.is_default).length > 0 && (
+                        <div className="border border-gray-200 rounded-xl overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setShowOtherAddresses(!showOtherAddresses)}
+                            className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
+                          >
+                            <span className="text-sm font-medium text-gray-700">
+                              Other Saved Addresses ({savedAddresses.filter(addr => !addr.is_default).length})
+                            </span>
+                            {showOtherAddresses ? (
+                              <ChevronUp className="w-4 h-4 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-gray-500" />
+                            )}
+                          </button>
+                          
+                          {showOtherAddresses && (
+                            <div className="p-4 space-y-3 bg-white">
+                              {savedAddresses.filter(addr => !addr.is_default).map((address) => (
+                                <div key={address.id} className="flex items-start space-x-3">
+                                  <input
+                                    type="radio"
+                                    id={`address-${address.id}`}
+                                    name="address-selection"
+                                    value={address.id}
+                                    checked={selectedAddressId === address.id}
+                                    onChange={(e) => handleAddressSelection(e.target.value)}
+                                    className="w-4 h-4 text-yellow-400 border-gray-300 focus:ring-yellow-400 mt-1"
+                                  />
+                                  <label htmlFor={`address-${address.id}`} className="flex-1 cursor-pointer">
+                                    <div className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-colors">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium text-gray-900 text-sm">
+                                          {address.first_name} {address.last_name}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-gray-600 space-y-1">
+                                        {address.address_line_1}
+                                        {address.address_line_2 && (
+                                          <div>{address.address_line_2}</div>
+                                        )}
+                                        <div>{address.city}, {address.state} {address.postal_code}</div>
+                                        <div>{address.country}</div>
+                                        {address.phone && <div>{address.phone}</div>}
+                                      </div>
+                                    </div>
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Address Form */}
                 <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1422,6 +1681,22 @@ export default function CheckoutPage() {
                   </div>
                       </div>
                     </>
+                  )}
+
+                  {/* Save Address Option */}
+                  {user && deliveryMethod === 'shipping' && selectedAddressId === '' && (
+                    <div className="flex items-center space-x-3 pt-4 border-t border-gray-200">
+                      <input
+                        type="checkbox"
+                        id="save-address"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        className="w-4 h-4 text-yellow-400 border-gray-300 rounded focus:ring-yellow-400"
+                      />
+                      <label htmlFor="save-address" className="text-sm text-gray-700">
+                        Save this address for future orders
+                      </label>
+                    </div>
                   )}
                   
                   {deliveryMethod === 'pickup' && (

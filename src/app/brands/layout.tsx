@@ -24,8 +24,13 @@ export default function BrandsLayout({
 }) {
   const [brands, setBrands] = useState<Brand[]>([])
   const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
   const { getTotalItems, openCart } = useCartStore()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     fetchBrands()
@@ -111,7 +116,7 @@ export default function BrandsLayout({
                 onClick={openCart}
               >
                 <ShoppingBag className="w-4 h-4" />
-                {getTotalItems() > 0 && (
+                {mounted && getTotalItems() > 0 && (
                   <span className="absolute -top-1 -right-1 bg-gradient-to-r from-[#6A41A1] to-[#FFD84D] text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-medium shadow-lg">
                     {getTotalItems()}
                   </span>

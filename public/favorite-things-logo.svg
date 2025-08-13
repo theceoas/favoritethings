@@ -1,0 +1,10 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Yellow circle background -->
+  <circle cx="50" cy="50" r="45" fill="#F59E0B" stroke="white" stroke-width="3"/>
+  
+  <!-- Text content -->
+  <text x="50" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="black">THE</text>
+  <text x="50" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="black">FAVORITE</text>
+  <text x="50" y="55" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="black">THINGS</text>
+  <text x="50" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="bold" fill="black">LIFESTYLE</text>
+</svg> 

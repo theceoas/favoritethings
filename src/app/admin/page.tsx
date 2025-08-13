@@ -91,6 +91,50 @@ export default function AdminDashboard() {
     fetchDashboardData()
   }, [])
 
+  const testNotification = async () => {
+    try {
+      const response = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 1 })
+      })
+      const result = await response.json()
+      console.log('Test notification result:', result)
+      alert('Test notification created! Check the bell icon.')
+    } catch (error) {
+      console.error('Error creating test notification:', error)
+      alert('Error creating test notification')
+    }
+  }
+
+  const checkNotificationStatus = async () => {
+    try {
+      const response = await fetch('/api/notifications/debug')
+      const result = await response.json()
+      console.log('Notification status:', result)
+      alert(`Notifications: ${result.unreadNotifications} unread, ${result.totalNotifications} total`)
+    } catch (error) {
+      console.error('Error checking notification status:', error)
+      alert('Error checking notification status')
+    }
+  }
+
+  const clearAllNotifications = async () => {
+    try {
+      const response = await fetch('/api/notifications/clear', {
+        method: 'POST'
+      })
+      const result = await response.json()
+      console.log('Clear notifications result:', result)
+      alert('All notifications cleared!')
+      // Refresh the page to update the count
+      window.location.reload()
+    } catch (error) {
+      console.error('Error clearing notifications:', error)
+      alert('Error clearing notifications')
+    }
+  }
+
   const quickActions = [
     {
       title: "Add Product",
@@ -283,6 +327,43 @@ export default function AdminDashboard() {
                 </Card>
               </motion.div>
             ))}
+          </div>
+        </motion.div>
+
+        {/* Notification Test Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="mb-8"
+        >
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-gray-200/50">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <h2 className="text-xl font-bold text-gray-800">Notification System Test</h2>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                onClick={testNotification}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                Create Test Notification
+              </Button>
+              <Button
+                onClick={checkNotificationStatus}
+                variant="outline"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Check Notification Status
+              </Button>
+              <Button
+                onClick={clearAllNotifications}
+                variant="outline"
+                className="border-red-300 text-red-700 hover:bg-red-50"
+              >
+                Clear All Notifications
+              </Button>
+            </div>
           </div>
         </motion.div>
 

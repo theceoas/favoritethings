@@ -55,6 +55,7 @@ interface Order {
   pickup_date?: string
   pickup_time?: string
   customer_phone?: string
+  delivery_phone?: string
   special_instructions?: string
   created_at: string
   updated_at: string

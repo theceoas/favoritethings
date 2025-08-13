@@ -34,6 +34,20 @@ export default function CartPage() {
   useEffect(() => {
     setMounted(true)
     
+    // Check if checkout was completed and redirect to thank you page
+    if (typeof window !== 'undefined') {
+      const checkoutCompleted = sessionStorage.getItem('checkout_completed')
+      const redirectUrl = sessionStorage.getItem('redirect_to_thank_you')
+      
+      if (checkoutCompleted === 'true' && redirectUrl) {
+        console.log('🔄 Checkout completed, redirecting to thank you page')
+        sessionStorage.removeItem('checkout_completed')
+        sessionStorage.removeItem('redirect_to_thank_you')
+        window.location.href = redirectUrl
+        return
+      }
+    }
+    
     // Refresh inventory when cart page loads
     if (items.length > 0) {
       refreshInventory()

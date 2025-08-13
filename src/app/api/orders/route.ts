@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { notificationService } from '@/lib/services/notificationService'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
@@ -230,66 +231,90 @@ export async function POST(request: NextRequest) {
     const shippingAmount = deliveryMethod === 'pickup' ? 0 : (subtotal >= 50000 ? 0 : 5000) // Free for pickup or orders over ₦50,000
     const total = subtotal + taxAmount + shippingAmount - discountAmount
 
-    // Generate brand-specific order number
+    // Generate brand-specific order number with retry mechanism
     let orderNumber: string
+    let maxRetries = 5
+    let retryCount = 0
     
-    try {
-      // Get the brand from the first item's product
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('brand_id')
-        .eq('id', items[0].product_id)
-        .single()
-      
-      if (productError) {
-        console.warn('⚠️ Could not determine brand, using default prefix')
-        const timestamp = Date.now()
-        const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-        orderNumber = `BZ${new Date().getFullYear()}${String(timestamp).slice(-6)}${randomPart}`
-      } else {
-        // Get brand slug to determine prefix
-        const { data: brand, error: brandError } = await supabase
-          .from('brands')
-          .select('slug')
-          .eq('id', product.brand_id)
+    while (retryCount < maxRetries) {
+      try {
+        // Get the brand from the first item's product
+        const { data: product, error: productError } = await supabase
+          .from('products')
+          .select('brand_id')
+          .eq('id', items[0].product_id)
           .single()
         
-        if (brandError) {
+        if (productError) {
           console.warn('⚠️ Could not determine brand, using default prefix')
           const timestamp = Date.now()
           const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
           orderNumber = `BZ${new Date().getFullYear()}${String(timestamp).slice(-6)}${randomPart}`
+          break
         } else {
-          // Generate brand-specific order number
-          const date = new Date()
-          const dateStr = date.getFullYear().toString() + 
-                         (date.getMonth() + 1).toString().padStart(2, '0') + 
-                         date.getDate().toString().padStart(2, '0')
+          // Get brand slug to determine prefix
+          const { data: brand, error: brandError } = await supabase
+            .from('brands')
+            .select('slug')
+            .eq('id', product.brand_id)
+            .single()
           
-          // Get the next sequence number for this brand and date
-          const { data: existingOrders, error: countError } = await supabase
-            .from('orders')
-            .select('order_number')
-            .like('order_number', `${brand.slug.toUpperCase()}-${dateStr}-%`)
-            .order('order_number', { ascending: false })
-            .limit(1)
-          
-          let sequence = 1
-          if (!countError && existingOrders && existingOrders.length > 0) {
-            const lastOrderNumber = existingOrders[0].order_number
-            const lastSequence = parseInt(lastOrderNumber.split('-')[2])
-            sequence = lastSequence + 1
+          if (brandError) {
+            console.warn('⚠️ Could not determine brand, using default prefix')
+            const timestamp = Date.now()
+            const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+            orderNumber = `BZ${new Date().getFullYear()}${String(timestamp).slice(-6)}${randomPart}`
+            break
+          } else {
+            // Generate brand-specific order number with timestamp to avoid race conditions
+            const date = new Date()
+            const dateStr = date.getFullYear().toString() + 
+                           (date.getMonth() + 1).toString().padStart(2, '0') + 
+                           date.getDate().toString().padStart(2, '0')
+            
+            // Add timestamp to make it unique and avoid race conditions
+            const timestamp = Date.now()
+            const timePart = String(timestamp).slice(-6)
+            const randomPart = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+            
+            orderNumber = `${brand.slug.toUpperCase()}-${dateStr}-${timePart}-${randomPart}`
+            
+            // Verify uniqueness before proceeding
+            const { data: existingOrder, error: checkError } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('order_number', orderNumber)
+              .maybeSingle()
+            
+            if (checkError) {
+              console.warn('⚠️ Error checking order number uniqueness, retrying...')
+              retryCount++
+              continue
+            }
+            
+            if (existingOrder) {
+              console.warn('⚠️ Order number collision detected, retrying...')
+              retryCount++
+              continue
+            }
+            
+            // Order number is unique, break out of retry loop
+            break
           }
-          
-          orderNumber = `${brand.slug.toUpperCase()}-${dateStr}-${sequence.toString().padStart(3, '0')}`
+        }
+      } catch (error) {
+        console.warn('⚠️ Error generating brand-specific order number, retrying...')
+        retryCount++
+        if (retryCount >= maxRetries) {
+          // Final fallback
+          const timestamp = Date.now()
+          const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+          orderNumber = `BZ${new Date().getFullYear()}${String(timestamp).slice(-6)}${randomPart}`
+          break
         }
       }
-    } catch (error) {
-      console.warn('⚠️ Error generating brand-specific order number, using fallback')
-      const timestamp = Date.now()
-      const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-      orderNumber = `BZ${new Date().getFullYear()}${String(timestamp).slice(-6)}${randomPart}`
     }
+    
     console.log('🔢 Orders API - Generated order number:', orderNumber)
 
     // Create order
@@ -300,7 +325,7 @@ export async function POST(request: NextRequest) {
         order_number: orderNumber,
         user_id: user?.id || null,
         email,
-        status: 'pending',
+        status: 'confirmed',
         payment_status: 'pending',
         subtotal,
         tax_amount: taxAmount,
@@ -326,6 +351,32 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Orders API - Order created successfully:', { id: order.id, orderNumber: order.order_number })
+
+    // 🔥 NEW: Create notification for new order
+    try {
+      const { error: notificationError } = await supabase
+        .from('admin_notifications')
+        .insert({
+          type: 'new_order',
+          title: 'New Order Received',
+          message: `Order #${order.order_number} has been placed for ₦${order.total.toLocaleString()}`,
+          data: {
+            order_id: order.id,
+            order_number: order.order_number,
+            amount: order.total
+          },
+          is_read: false
+        })
+
+      if (notificationError) {
+        console.error('❌ Failed to create notification for new order:', notificationError)
+      } else {
+        console.log('✅ Notification created for new order')
+      }
+    } catch (notificationError) {
+      console.error('❌ Failed to create notification for new order:', notificationError)
+      // Don't fail the order creation for notification errors
+    }
 
     // 🔥 FIXED: Record promotion usage using the proper database function
     if (validatedPromotion && user) {
@@ -483,6 +534,8 @@ export async function POST(request: NextRequest) {
     } else if (sessionId) {
       await supabase.from('carts').delete().eq('session_id', sessionId)
     }
+
+
 
     // TODO: Send confirmation email
     // TODO: Initialize payment with Paystack

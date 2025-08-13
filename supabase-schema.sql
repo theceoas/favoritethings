@@ -124,7 +124,7 @@ CREATE TABLE orders (
     order_number TEXT UNIQUE NOT NULL,
     user_id UUID REFERENCES profiles(id),
     email TEXT NOT NULL,
-    status order_status DEFAULT 'pending',
+    status order_status DEFAULT 'confirmed',
     payment_status payment_status DEFAULT 'pending',
     payment_method TEXT,
     subtotal DECIMAL(10,2) NOT NULL DEFAULT 0,

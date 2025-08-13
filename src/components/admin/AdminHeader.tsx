@@ -7,6 +7,7 @@ import { User } from '@supabase/supabase-js'
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import NotificationDialog from './NotificationDialog'
 import {
   Eye,
   Cog,
@@ -19,16 +20,24 @@ import {
 
 export default function AdminHeader() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unreadCount, setUnreadCount] = useState(0)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+      } catch (error) {
+        console.error('Error getting user:', error)
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
     }
 
     getUser()
@@ -39,8 +48,67 @@ export default function AdminHeader() {
       }
     )
 
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount()
+      
+      // Set up real-time subscription for notifications
+      const channel = supabase
+        .channel('admin_notifications_count')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'admin_notifications'
+          },
+          (payload) => {
+            console.log('🔔 Notification change detected:', payload)
+            fetchUnreadCount()
+          }
+        )
+        .subscribe()
+
+      // Also fetch count periodically as backup
+      const interval = setInterval(fetchUnreadCount, 30000) // Every 30 seconds
+
+      return () => {
+        supabase.removeChannel(channel)
+        clearInterval(interval)
+      }
+    }
+  }, [user])
+
+  const fetchUnreadCount = async () => {
+    try {
+      console.log('🔍 Fetching unread notification count...')
+      
+      // Fetch all notifications and count unread ones
+      const { data: notifications, error } = await supabase
+        .from('admin_notifications')
+        .select('is_read')
+
+      if (error) {
+        console.error('Error fetching notifications:', error)
+        setUnreadCount(0)
+        return
+      }
+
+      const unreadCount = notifications?.filter(n => !n.is_read).length || 0
+      console.log('📊 Unread count:', unreadCount)
+      setUnreadCount(unreadCount)
+    } catch (error) {
+      console.error('Error fetching unread count:', error)
+      setUnreadCount(0)
+    }
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -130,17 +198,27 @@ export default function AdminHeader() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.3 }}
+            className="relative"
           >
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setIsNotificationDialogOpen(true)}
               className="relative p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100/50 rounded-xl"
             >
               <Bell className="w-5 h-5" />
-              <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs">
-                3
-              </Badge>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
             </Button>
+            
+            <NotificationDialog
+              isOpen={isNotificationDialogOpen}
+              onClose={() => setIsNotificationDialogOpen(false)}
+              onUnreadCountChange={setUnreadCount}
+            />
           </motion.div>
 
           {/* Quick Actions */}
