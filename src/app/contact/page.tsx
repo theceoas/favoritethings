@@ -188,8 +188,8 @@ export default function ContactPage() {
                 <Mail className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Email Us</h3>
-              <p className="text-gray-600 mb-3">hello@bedznbuttunz.com</p>
-              <p className="text-gray-600 mb-3">support@bedznbuttunz.com</p>
+              <p className="text-gray-600 mb-3">favoritethings@gmail.com</p>
+              <p className="text-gray-600 mb-3">favoritethings@gmail.com</p>
               <p className="text-sm text-gray-500 mt-3">We reply within 24 hours</p>
             </motion.div>
             
@@ -201,9 +201,11 @@ export default function ContactPage() {
                 <MapPin className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">Visit Us</h3>
-              <p className="text-gray-600 mb-3">123 Fashion Street</p>
-              <p className="text-gray-600 mb-3">Lagos, Nigeria</p>
-              <p className="text-sm text-gray-500 mt-3">By appointment only</p>
+              <p className="text-gray-600 mb-3">Block A Flat 3, 1 Kumasi Crescent</p>
+              <p className="text-gray-600 mb-3">Wuse 2, Abuja</p>
+              <p className="text-sm text-gray-500 mt-3">
+                <a href="https://maps.google.com/?geocode=FUs_igAdJflwAA%3D%3D;FZCYigAdbBhyACkpjdXf9gpOEDFYqzyHL1RfgQ%3D%3D&daddr=1+Kumasi+Crescent,+Abuja&saddr=9.0601709,7.4038126&dirflg=dht&ftid=0x104e0af6dfd58d29:0x815f542f873cab58&lucs=,94259549,94284481,94224825,94227247,94227248,94231188,47071704,47069508,94218641,94282134,94203019,47084304,94286863&g_ep=CAISEjI1LjM1LjAuNzk5MDg4MzU1MBgAILq3Cyp1LDk0MjU5NTQ5LDk0Mjg0NDgxLDk0MjI0ODI1LDk0MjI3MjQ3LDk0MjI3MjQ4LDk0MjMxMTg4LDQ3MDcxNzA0LDQ3MDY5NTA4LDk0MjE4NjQxLDk0MjgyMTM0LDk0MjAzMDE5LDQ3MDg0MzA0LDk0Mjg2ODYzQgJORw%3D%3D&skid=373c3d47-a18c-4b52-8a61-52e87e303478&g_st=ic&g_st=ic" target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline">Open in Google Maps</a>
+              </p>
             </motion.div>
           </div>
 

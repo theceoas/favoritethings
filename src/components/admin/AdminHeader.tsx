@@ -70,8 +70,12 @@ export default function AdminHeader() {
             table: 'admin_notifications'
           },
           (payload) => {
-            console.log('🔔 Notification change detected:', payload)
-            fetchUnreadCount()
+            console.log('🔔 AdminHeader - Notification change detected:', payload)
+            // Add a longer delay to prevent conflicts with dialog state updates
+            setTimeout(() => {
+              console.log('🔄 AdminHeader - Fetching unread count after real-time change')
+              fetchUnreadCount()
+            }, 1500)
           }
         )
         .subscribe()
@@ -90,18 +94,19 @@ export default function AdminHeader() {
     try {
       console.log('🔍 Fetching unread notification count...')
       
-      // Fetch all notifications and count unread ones
-      const { data: notifications, error } = await supabase
+      // Use the count query for better performance
+      const { count, error } = await supabase
         .from('admin_notifications')
-        .select('is_read')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_read', false)
 
       if (error) {
-        console.error('Error fetching notifications:', error)
+        console.error('Error fetching notifications count:', error)
         setUnreadCount(0)
         return
       }
 
-      const unreadCount = notifications?.filter(n => !n.is_read).length || 0
+      const unreadCount = count || 0
       console.log('📊 Unread count:', unreadCount)
       setUnreadCount(unreadCount)
     } catch (error) {
@@ -165,20 +170,22 @@ export default function AdminHeader() {
       animate={{ opacity: 1, y: 0 }}
       className="bg-white/90 backdrop-blur-md shadow-xl border-b border-gray-200/50"
     >
-      <div className="flex items-center justify-between px-8 py-6">
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 lg:py-6">
         <div className="flex items-center space-x-4">
+          {/* Mobile spacing for hamburger menu */}
+          <div className="lg:hidden w-10"></div>
           <motion.div
             whileHover={{ scale: 1.1, rotate: 5 }}
             className="w-2 h-8 bg-gradient-to-b from-yellow-400 to-orange-500 rounded-full shadow-lg"
           />
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
-            <p className="text-gray-600 text-sm">Manage your fashion empire</p>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+            <p className="text-gray-600 text-xs sm:text-sm hidden sm:block">Manage your fashion empire</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-6">
-          {/* Search Bar */}
+        <div className="flex items-center space-x-2 sm:space-x-4 lg:space-x-6">
+          {/* Search Bar - Hidden on mobile, visible on desktop */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -216,17 +223,24 @@ export default function AdminHeader() {
             
             <NotificationDialog
               isOpen={isNotificationDialogOpen}
-              onClose={() => setIsNotificationDialogOpen(false)}
-              onUnreadCountChange={setUnreadCount}
+              onClose={() => {
+                setIsNotificationDialogOpen(false)
+                // Force refresh the unread count when dialog closes
+                fetchUnreadCount()
+              }}
+              onUnreadCountChange={(count) => {
+                console.log('📊 AdminHeader received unread count update:', count)
+                setUnreadCount(count)
+              }}
             />
           </motion.div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - Hidden on mobile and tablet */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.4 }}
-            className="hidden lg:flex items-center space-x-3"
+            className="hidden xl:flex items-center space-x-3"
           >
             <Button
               onClick={() => router.push('/')}
@@ -248,17 +262,17 @@ export default function AdminHeader() {
             <Button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               variant="ghost"
-              className="flex items-center space-x-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-300"
+              className="flex items-center space-x-2 sm:space-x-3 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors duration-300"
             >
               <motion.div
                 whileHover={{ scale: 1.1 }}
-                className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg"
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg"
               >
-                <span className="text-lg font-bold text-white">
+                <span className="text-sm sm:text-lg font-bold text-white">
                   {user.email?.charAt(0).toUpperCase() || 'A'}
                 </span>
               </motion.div>
-              <div className="hidden md:block text-left">
+              <div className="hidden lg:block text-left">
                 <div className="font-medium text-gray-800">{user.email?.split('@')[0] || 'Admin'}</div>
                 <div className="text-xs text-gray-500">Administrator</div>
               </div>

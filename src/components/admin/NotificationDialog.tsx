@@ -104,6 +104,7 @@ const formatTimeAgo = (dateString: string) => {
 export default function NotificationDialog({ isOpen, onClose, onUnreadCountChange }: NotificationDialogProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+
   const [unreadCount, setUnreadCount] = useState(0)
   const router = useRouter()
   const supabase = createClient()
@@ -126,8 +127,12 @@ export default function NotificationDialog({ isOpen, onClose, onUnreadCountChang
           table: 'admin_notifications'
         },
         (payload) => {
-          console.log('Notification change:', payload)
-          fetchNotifications()
+          console.log('🔔 NotificationDialog - Real-time change:', payload)
+          // Add delay to prevent race conditions with manual state updates
+          setTimeout(() => {
+            console.log('🔄 NotificationDialog - Fetching notifications after real-time change')
+            fetchNotifications()
+          }, 1000)
         }
       )
       .subscribe()
@@ -194,28 +199,7 @@ export default function NotificationDialog({ isOpen, onClose, onUnreadCountChang
     }
   }
 
-  const markAllAsRead = async () => {
-    try {
-      const { error } = await supabase
-        .from('admin_notifications')
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString()
-        })
-        .eq('is_read', false)
 
-      if (error) throw error
-
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notif => ({ ...notif, is_read: true, read_at: new Date().toISOString() }))
-      )
-      setUnreadCount(0)
-      onUnreadCountChange(0)
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error)
-    }
-  }
 
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read
@@ -257,16 +241,7 @@ export default function NotificationDialog({ isOpen, onClose, onUnreadCountChang
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
-              {unreadCount > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
-                  className="text-xs text-gray-600 hover:text-gray-800"
-                >
-                  Mark all read
-                </Button>
-              )}
+
             </div>
           </DialogTitle>
         </DialogHeader>

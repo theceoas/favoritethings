@@ -32,7 +32,7 @@ SMTP_PASS=your-app-password
 
 ### Admin Configuration
 ```
-ADMIN_EMAIL=admin@bedznbuttunz.com
+ADMIN_EMAIL=favoritethings@gmail.com
 ```
 
 ## Vercel Deployment Steps

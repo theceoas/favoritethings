@@ -60,24 +60,14 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
   const [filterOptions, setFilterOptions] = useState<any[]>([])
   const [selectedFilters, setSelectedFilters] = useState<{[key: string]: string[]}>({})
 
-  // Collection states
-  const [collections, setCollections] = useState<any[]>([])
-  const [selectedCollections, setSelectedCollections] = useState<string[]>([])
-
-  // Variant management states
-  const [availableSizes] = useState(['Twin', 'Full', 'Queen', 'King', 'California King', 'Standard', 'Euro'])
-  const [availableColors] = useState(['White', 'Gray', 'Navy', 'Beige', 'Black', 'Cream', 'Silver'])
+  // Simplified variant management - just sizes, barcode, price, inventory
   const [newVariant, setNewVariant] = useState({
     title: '',
     sku: '',
     barcode: '',
     price: '',
-    compare_at_price: '',
     size: '',
-    color: '',
-    material: '',
     inventory_quantity: 0,
-    dimensions: '',
     is_default: false
   })
 
@@ -103,30 +93,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
     }
   }, [formData.title, product])
 
-  // Fetch collections when brand changes
-  useEffect(() => {
-    if (formData.brand_id) {
-      fetchCollections()
-    } else {
-      setCollections([])
-    }
-  }, [formData.brand_id])
 
-  const fetchCollections = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('collections')
-        .select('*')
-        .eq('brand_id', formData.brand_id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-
-      if (error) throw error
-      setCollections(data || [])
-    } catch (error) {
-      console.error('Error fetching collections:', error)
-    }
-  }
 
   // Fetch filter categories and options
   useEffect(() => {
@@ -225,8 +192,8 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
   const handleFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        showError('File Too Large', 'Image size must be less than 5MB')
+              if (file.size > 10 * 1024 * 1024) { // 10MB limit
+          showError('File Too Large', 'Image size must be less than 10MB')
         return
       }
       if (!file.type.startsWith('image/')) {
@@ -250,8 +217,8 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
     }
 
     const validFiles = files.filter(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        showError('File Too Large', `${file.name} is too large. Maximum size is 5MB`)
+              if (file.size > 10 * 1024 * 1024) {
+        showError('File Too Large', `${file.name} is too large. Maximum size is 10MB`)
         return false
       }
       if (!file.type.startsWith('image/')) {
@@ -410,6 +377,13 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Check Supabase client
+    const supabaseClient = createClient()
+    if (!supabaseClient) {
+      showError('Configuration Error', 'Supabase client not properly configured. Please check environment variables.')
+      return
+    }
     
     // Validate mandatory fields
     if (!formData.brand_id) {
@@ -582,28 +556,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
           .eq('product_id', productId)
       }
 
-      // Handle collection associations
-      if (product) {
-        // Remove existing collection associations
-        await supabase
-          .from('product_collections')
-          .delete()
-          .eq('product_id', productId)
-      }
 
-      // Add new collection associations
-      if (selectedCollections.length > 0) {
-        const collectionInserts = selectedCollections.map(collectionId => ({
-          product_id: productId,
-          collection_id: collectionId
-        }))
-
-        const { error: collectionError } = await supabase
-          .from('product_collections')
-          .insert(collectionInserts)
-
-        if (collectionError) throw collectionError
-      }
 
       router.push('/admin/products')
       router.refresh()
@@ -655,33 +608,30 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
   }
 
   const addVariant = () => {
-    if (!newVariant.size && !newVariant.color) {
-      showError('Missing Variant Details', 'Please select at least a size or color for the variant')
+    if (!newVariant.size.trim()) {
+      showError('Missing Size', 'Please enter a size for the variant')
       return
     }
 
-    // Check for duplicate combinations
+    // Check for duplicate size
     const exists = formData.variants.some((v: any) => 
-      v.size === newVariant.size && v.color === newVariant.color
+      v.size?.toLowerCase() === newVariant.size.toLowerCase().trim()
     )
 
     if (exists) {
-      showError('Duplicate Variant', 'A variant with this size and color combination already exists')
+      showError('Duplicate Size', 'A variant with this size already exists')
       return
     }
 
+    const cleanSize = newVariant.size.trim()
     const variant = {
       id: `temp-${Date.now()}`, // Temporary ID for new variants
-      title: newVariant.title || generateVariantTitle(newVariant.size, newVariant.color),
-      sku: newVariant.sku || generateVariantSKU(newVariant.size, newVariant.color),
+      title: `${formData.title} - Size ${cleanSize}`,
+      sku: newVariant.sku || `${formData.sku || 'PROD'}-${cleanSize.toUpperCase()}`,
       barcode: newVariant.barcode || null,
       price: parseFloat(newVariant.price) || parseFloat(formData.price.toString()) || 0,
-      compare_at_price: newVariant.compare_at_price ? parseFloat(newVariant.compare_at_price) : null,
-      size: newVariant.size || null,
-      color: newVariant.color || null,
-      material: newVariant.material || formData.material || null,
+      size: cleanSize,
       inventory_quantity: parseInt(newVariant.inventory_quantity.toString()) || 0,
-      dimensions: newVariant.dimensions || null,
       is_default: formData.variants.length === 0 ? true : newVariant.is_default, // First variant is default
       is_active: true,
       sort_order: formData.variants.length + 1
@@ -698,12 +648,8 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
       sku: '',
       barcode: '',
       price: '',
-      compare_at_price: '',
       size: '',
-      color: '',
-      material: '',
       inventory_quantity: 0,
-      dimensions: '',
       is_default: false
     })
   }
@@ -761,33 +707,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[#4F4032] mb-2">
-              Collections
-              <span className="text-xs text-gray-500 ml-1">(optional)</span>
-            </label>
-            <select
-              multiple
-              value={selectedCollections}
-              onChange={(e) => {
-                const values = Array.from(e.target.selectedOptions, option => option.value)
-                setSelectedCollections(values)
-              }}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent min-h-[120px]"
-            >
-              {collections.map(collection => (
-                <option key={collection.id} value={collection.id}>
-                  {collection.name}
-                </option>
-              ))}
-            </select>
-            {collections.length === 0 && formData.brand_id && (
-              <p className="text-sm text-gray-500 mt-1">No collections available for this brand</p>
-            )}
-            {!formData.brand_id && (
-              <p className="text-sm text-gray-500 mt-1">Select a brand first to see collections</p>
-            )}
-          </div>
+
 
           <div>
             <label className="block text-sm font-medium text-[#4F4032] mb-2">
@@ -1062,43 +982,16 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
               <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                 <h4 className="text-md font-semibold text-[#6A41A1] mb-4">Add New Variant</h4>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-[#4F4032] mb-2">Size</label>
-                    <select
+                    <input
+                      type="text"
                       value={newVariant.size}
-                      onChange={(e) => setNewVariant(prev => ({ 
-                        ...prev, 
-                        size: e.target.value,
-                        title: generateVariantTitle(e.target.value, prev.color),
-                        sku: generateVariantSKU(e.target.value, prev.color)
-                      }))}
+                      onChange={(e) => setNewVariant(prev => ({ ...prev, size: e.target.value }))}
+                      placeholder="e.g., XS, S, M, L, 10, 12, 14"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent"
-                    >
-                      <option value="">Select Size</option>
-                      {availableSizes.map(size => (
-                        <option key={size} value={size}>{size}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[#4F4032] mb-2">Color</label>
-                    <select
-                      value={newVariant.color}
-                      onChange={(e) => setNewVariant(prev => ({ 
-                        ...prev, 
-                        color: e.target.value,
-                        title: generateVariantTitle(prev.size, e.target.value),
-                        sku: generateVariantSKU(prev.size, e.target.value)
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent"
-                    >
-                      <option value="">Select Color</option>
-                      {availableColors.map(color => (
-                        <option key={color} value={color}>{color}</option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div>
@@ -1127,13 +1020,27 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-[#4F4032] mb-2">SKU</label>
+                    <label className="block text-sm font-medium text-[#4F4032] mb-2">Price (₦)</label>
                     <input
-                      type="text"
-                      value={newVariant.sku}
-                      onChange={(e) => setNewVariant(prev => ({ ...prev, sku: e.target.value }))}
+                      type="number"
+                      value={newVariant.price}
+                      onChange={(e) => setNewVariant(prev => ({ ...prev, price: e.target.value }))}
+                      placeholder={formData.price.toString()}
+                      min="0"
+                      step="0.01"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent"
-                      placeholder="Auto-generated"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#4F4032] mb-2">Inventory</label>
+                    <input
+                      type="number"
+                      value={newVariant.inventory_quantity}
+                      onChange={(e) => setNewVariant(prev => ({ ...prev, inventory_quantity: parseInt(e.target.value) || 0 }))}
+                      min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent"
+                      placeholder="0"
                     />
                   </div>
 
@@ -1147,7 +1054,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
                       value={newVariant.barcode}
                       onChange={(e) => setNewVariant(prev => ({ ...prev, barcode: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6A41A1] focus:border-transparent"
-                      placeholder="e.g., BED001-K, SHEET001-Q"
+                      placeholder="e.g., DRESS001-S, GOWN002-M"
                     />
                   </div>
 
@@ -1365,7 +1272,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
             )}
           </div>
           <p className="text-xs text-[#4F4032]/60 mt-1">
-            This will be the main image shown in product listings. The full image is preserved without any cropping or editing. Max size: 5MB.
+            This will be the main image shown in product listings. The full image is preserved without any cropping or editing. Max size: 10MB.
           </p>
         </div>
 
@@ -1413,7 +1320,7 @@ export default function ProductForm({ product, brands }: ProductFormProps) {
             )}
           </div>
           <p className="text-xs text-[#4F4032]/60 mt-1">
-            Upload up to 10 additional product images. Max size: 5MB each. Images are preserved as-is without editing.
+            Upload up to 10 additional product images. Max size: 10MB each. Images are preserved as-is without editing.
           </p>
         </div>
 

@@ -53,23 +53,34 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Validate user still exists in profiles table and has admin role
-    try {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
+    // Check if we have role info in the user metadata to avoid DB call
+    const userRole = user.user_metadata?.role || user.app_metadata?.role
+    
+    // Only make DB call if role is not in metadata or if it's the main admin page
+    if (!userRole || request.nextUrl.pathname === '/admin') {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
 
-      if (profileError || !profile || profile.role !== 'admin') {
-        // User doesn't exist in profiles or isn't admin, sign them out
+        if (profileError || !profile || profile.role !== 'admin') {
+          // User doesn't exist in profiles or isn't admin, sign them out
+          const response = NextResponse.redirect(new URL('/auth/login', request.url))
+          response.cookies.delete('sb-access-token')
+          response.cookies.delete('sb-refresh-token')
+          return response
+        }
+      } catch (error) {
+        console.error('Error validating admin user:', error)
         const response = NextResponse.redirect(new URL('/auth/login', request.url))
         response.cookies.delete('sb-access-token')
         response.cookies.delete('sb-refresh-token')
         return response
       }
-    } catch (error) {
-      console.error('Error validating admin user:', error)
+    } else if (userRole !== 'admin') {
+      // Role in metadata but not admin
       const response = NextResponse.redirect(new URL('/auth/login', request.url))
       response.cookies.delete('sb-access-token')
       response.cookies.delete('sb-refresh-token')
@@ -77,13 +88,16 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // For protected routes (like account), validate user exists
+  // For protected routes (like account), validate user exists - but only on first visit
   const protectedRoutes = ['/account', '/checkout', '/orders']
   const isProtectedRoute = protectedRoutes.some(route => 
     request.nextUrl.pathname.startsWith(route)
   )
 
-  if (isProtectedRoute && user) {
+  // Only check profile on first visit to protected routes, not on every request
+  const shouldCheckProfile = isProtectedRoute && user && !request.cookies.get('profile-checked')
+  
+  if (shouldCheckProfile) {
     try {
       // Check if user profile exists, but don't fail if it doesn't
       const { data: profile, error: profileError } = await supabase
@@ -110,6 +124,13 @@ export async function updateSession(request: NextRequest) {
           // Continue anyway - don't block the user
         }
       }
+      
+      // Set a cookie to indicate profile has been checked for this session
+      supabaseResponse.cookies.set('profile-checked', 'true', {
+        maxAge: 60 * 60, // 1 hour
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production'
+      })
     } catch (error) {
       console.error('Error validating user profile:', error)
       // Don't block user access on profile errors

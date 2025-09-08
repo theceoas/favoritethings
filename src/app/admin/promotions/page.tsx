@@ -322,26 +322,26 @@ export default function PromotionsPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl sm:rounded-2xl shadow-lg"
                 >
-                  <Plus className="w-8 h-8 text-white" />
+                  <Plus className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">Promotions</h1>
-                  <p className="text-gray-600 text-lg">Manage brand-specific promotions for Kiowa, Omogebyify, and MiniMe</p>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">Promotions</h1>
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">Manage brand-specific promotions for Kiowa, Omogebyify, and MiniMe</p>
                 </div>
               </div>
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -349,8 +349,9 @@ export default function PromotionsPage() {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    className="w-full lg:w-auto"
                   >
-                    <Button className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium">
+                    <Button className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium w-full lg:w-auto justify-center">
                       <Plus className="w-4 h-4" />
                       Add Promotion
                     </Button>
@@ -570,77 +571,91 @@ export default function PromotionsPage() {
           </div>
         </motion.div>
 
-        {/* Promotions Table */}
+        {/* Promotions Cards - Mobile Friendly */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden"
+          className="space-y-4 sm:space-y-6"
         >
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Discount</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Valid Until</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPromotions.map((promo, index) => (
-                  <motion.tr
-                    key={promo.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
-                    className="hover:bg-gray-50/50 transition-colors duration-200"
-                  >
-                    <TableCell className="font-medium">{promo.code}</TableCell>
-                    <TableCell>
-                      {(() => {
-                        const brand = brands.find(b => b.id === promo.brand_id);
-                        return brand ? (
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
-                              style={{ backgroundColor: brand.primary_color }}
-                            />
-                            <span className="text-sm font-medium">{brand.name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-500">Unknown Brand</span>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>{promo.description}</TableCell>
-                    <TableCell>{promo.discount_percent}%</TableCell>
-                    <TableCell>{promo.times_used} / {promo.usage_limit === -1 ? '∞' : promo.usage_limit}</TableCell>
-                    <TableCell>
+          {filteredPromotions.map((promo, index) => (
+            <motion.div
+              key={promo.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
+            >
+              <Card className="bg-white/90 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-200/50">
+                <CardContent className="p-4 sm:p-6">
+                  {/* Header with Code and Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 font-mono">{promo.code}</h3>
+                      <p className="text-sm text-gray-600 mt-1">{promo.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Badge className={`${promo.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                         {promo.is_active ? 'Active' : 'Inactive'}
                       </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(new Date(promo.valid_until), 'MMM dd, yyyy')}</TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSendPromo(promo)}
-                        disabled={isSendingPromo}
-                        className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-                      >
-                        {isSendingPromo ? 'Sending...' : 'Send to Webhook'}
-                      </Button>
-                    </TableCell>
-                  </motion.tr>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                    </div>
+                  </div>
+
+                  {/* Brand Info */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Brand</h4>
+                    <div className="bg-gray-50/50 rounded-lg p-3">
+                      {(() => {
+                        const brand = brands.find(b => b.id === promo.brand_id);
+                        return brand ? (
+                          <div className="flex items-center gap-3">
+                            <div 
+                              className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                              style={{ backgroundColor: brand.primary_color }}
+                            />
+                            <span className="font-medium text-gray-900">{brand.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500">Unknown Brand</span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Promotion Stats Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
+                    <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                      <div className="text-2xl font-bold text-gray-800">{promo.discount_percent}%</div>
+                      <div className="text-xs text-gray-600">Discount</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                      <div className="text-lg font-bold text-gray-800">
+                        {promo.times_used} / {promo.usage_limit === -1 ? '∞' : promo.usage_limit}
+                      </div>
+                      <div className="text-xs text-gray-600">Usage</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50/50 rounded-lg col-span-2 sm:col-span-1">
+                      <div className="text-sm font-medium text-gray-800">
+                        {formatDate(new Date(promo.valid_until), 'MMM dd, yyyy')}
+                      </div>
+                      <div className="text-xs text-gray-600">Valid Until</div>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="flex items-center justify-end pt-4 border-t border-gray-200">
+                    <Button
+                      size="sm"
+                      onClick={() => handleSendPromo(promo)}
+                      disabled={isSendingPromo}
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                    >
+                      {isSendingPromo ? 'Sending...' : 'Send to Webhook'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
         </motion.div>
       </div>
     </div>

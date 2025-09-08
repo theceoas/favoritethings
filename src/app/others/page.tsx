@@ -168,7 +168,7 @@ export default function OthersPage() {
                     <img 
                       src={item.image_url} 
                       alt={item.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     <div className="absolute top-2 right-2">

@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import ProductDetailModal from '@/components/ProductDetailModal'
+import ProductSheet from '@/components/ProductSheet'
+import ProductTileWithQuickAdd from '@/components/ProductTileWithQuickAdd'
 import { useCartStore } from '@/lib/store/cartStore'
 import { toast } from 'sonner'
 import { 
@@ -92,8 +93,8 @@ export default function ProductsPage() {
   }
 
   const handleProductClick = (product: Product) => {
-    setSelectedProduct(product)
-    setIsModalOpen(true)
+    // Navigate to individual product page
+    window.location.href = `/products/${product.slug}`
   }
 
   const handleCloseModal = () => {
@@ -171,9 +172,9 @@ export default function ProductsPage() {
   const uniqueBrands = Array.from(new Set(products.map(p => p.brands?.slug).filter(Boolean)))
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur-md border-b border-gray-200/50 sticky top-0 z-40">
+              <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -199,7 +200,7 @@ export default function ProductsPage() {
 
       {/* Filters */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-6 shadow-lg border border-gray-200/50 mb-8">
+        <div className="p-4 sm:p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             <div className="flex flex-col sm:flex-row flex-1 gap-4 w-full">
               <div className="relative flex-1 max-w-md">
@@ -209,13 +210,13 @@ export default function ProductsPage() {
                   placeholder="Search products..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                 />
               </div>
               <select
                 value={brandFilter}
                 onChange={(e) => setBrandFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                className="px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
                 <option value="all">All Brands</option>
                 {uniqueBrands.map(brand => (
@@ -227,7 +228,7 @@ export default function ProductsPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                className="px-4 py-3 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
@@ -257,98 +258,17 @@ export default function ProductsPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8"
           >
             {filteredAndSortedProducts.map((product, index) => (
-              <motion.div
+              <ProductTileWithQuickAdd
                 key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="group"
-              >
-                <div 
-                  className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
-                  onClick={() => handleProductClick(product)}
-                >
-                  <div className="relative">
-                    <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
-                      {product.featured_image ? (
-                        <img
-                          src={product.featured_image}
-                          alt={product.title}
-                          className="w-full h-full"
-                          style={{ objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full relative overflow-hidden flex items-center justify-center">
-                          <Package className="w-16 h-16 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-2 left-2 space-y-1">
-                      {product.is_featured && (
-                        <Badge className="bg-orange-500 text-white text-xs px-2 py-1">
-                          <Star className="w-2 h-2 mr-1" />
-                          Featured
-                        </Badge>
-                      )}
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <Badge className="bg-orange-600 text-white text-xs px-2 py-1">
-                          -{getDiscountPercentage(product.price, product.compare_at_price)}%
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Brand Badge */}
-                    <div className="absolute top-2 right-2">
-                      <Badge 
-                        className="text-xs px-2 py-1"
-                        style={{ backgroundColor: product.brands?.primary_color || '#F97316' }}
-                      >
-                        {product.brands?.name || 'Unknown Brand'}
-                      </Badge>
-                    </div>
-
-                    {/* Quick Add Button */}
-                    <div className="absolute bottom-2 right-2">
-                      {product.inventory_quantity > 0 ? (
-                        <Button 
-                          size="sm" 
-                          className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
-                          onClick={(e) => handleAddToCart(product, e)}
-                        >
-                          <Plus className="w-4 h-4 text-orange-500" />
-                        </Button>
-                      ) : (
-                        <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
-                          Out of Stock
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-3">
-                    <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 text-sm">
-                      {product.title}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-800">
-                        {formatPrice(product.price)}
-                      </span>
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <span className="text-xs text-gray-500 line-through">
-                          {formatPrice(product.compare_at_price)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                product={product}
+                onClick={handleProductClick}
+                formatPrice={formatPrice}
+                index={index}
+                showSizes={true}
+              />
             ))}
           </motion.div>
         )}
@@ -381,8 +301,8 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
+      {/* Product Detail Sheet */}
+      <ProductSheet
         product={selectedProduct}
         isOpen={isModalOpen}
         onClose={handleCloseModal}

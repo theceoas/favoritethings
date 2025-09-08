@@ -533,36 +533,37 @@ export default function CustomersPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-blue-400 to-purple-500 rounded-xl sm:rounded-2xl shadow-lg"
                 >
-                  <Users className="w-8 h-8 text-white" />
+                  <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">Customer Management</h1>
-                  <p className="text-gray-600 text-lg">Monitor customers across all brands - Kiowa, Omogebyify, and MiniMe</p>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">Customer Management</h1>
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">Monitor customers across all brands - Kiowa, Omogebyify, and MiniMe</p>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full lg:w-auto">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  className="w-full lg:w-auto"
                 >
                   <Button
                     onClick={exportCustomers}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium"
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium w-full lg:w-auto justify-center"
                   >
                     <Download className="w-4 h-4" />
                     Export
@@ -578,9 +579,9 @@ export default function CustomersPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
             {[
               {
                 title: "Total Customers",
@@ -630,25 +631,30 @@ export default function CustomersPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-1 gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div className="bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {/* Search Bar */}
+              <div className="w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                   <input
                     type="text"
                     placeholder="Search customers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                    className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                   />
                 </div>
+              </div>
+              
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select
                   value={segmentFilter}
                   onChange={(e) => setSegmentFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="all">All Segments</option>
                   <option value="vip">VIP</option>
@@ -659,7 +665,7 @@ export default function CustomersPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
@@ -668,7 +674,7 @@ export default function CustomersPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   {sortOptions.map(option => (
                     <option key={option.id} value={option.id}>{option.name}</option>
@@ -736,145 +742,163 @@ export default function CustomersPage() {
             </div>
           )}
 
-          {/* Customer Table */}
+          {/* Select All Controls - Mobile Friendly */}
           {!loading && sortedCustomers.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50/50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
-                        onChange={selectAllCustomers}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
-                    <th className="px-6 py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white/50 divide-y divide-gray-200/50">
-                  {sortedCustomers.map((customer, index) => (
-                    <motion.tr
-                      key={customer.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
-                      className="hover:bg-gray-50/50 transition-colors duration-200"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
+            <div className="mb-4 p-4 bg-white/90 backdrop-blur-md rounded-xl shadow-lg border border-gray-200/50">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
+                    onChange={selectAllCustomers}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedCustomers.length > 0 
+                      ? `${selectedCustomers.length} of ${filteredCustomers.length} selected`
+                      : 'Select all customers'
+                    }
+                  </span>
+                </div>
+                {selectedCustomers.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={exportCustomers} className="bg-green-500 hover:bg-green-600 text-white">
+                      <Download className="w-3 h-3 mr-1" />
+                      Export
+                    </Button>
+                    <Button size="sm" onClick={() => bulkUpdateStatus(true)} className="bg-blue-500 hover:bg-blue-600 text-white">
+                      Activate
+                    </Button>
+                    <Button size="sm" onClick={() => bulkUpdateStatus(false)} className="bg-gray-500 hover:bg-gray-600 text-white">
+                      Deactivate
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Customer Cards - Mobile Friendly */}
+          {!loading && sortedCustomers.length > 0 && (
+            <div className="space-y-4 sm:space-y-6">
+              {sortedCustomers.map((customer, index) => (
+                <motion.div
+                  key={customer.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
+                >
+                  <Card className="bg-white/90 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-200/50">
+                    <CardContent className="p-4 sm:p-6">
+                      {/* Header with Avatar and Selection */}
+                      <div className="flex items-start gap-4 mb-4">
                         <input
                           type="checkbox"
                           checked={selectedCustomers.includes(customer.id)}
                           onChange={() => toggleCustomerSelection(customer.id)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1"
                         />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            {customer.avatar_url ? (
-                              <Image
-                                className="h-10 w-10 rounded-full"
-                                src={customer.avatar_url}
-                                alt={customer.full_name || customer.email}
-                                width={40}
-                                height={40}
-                              />
-                            ) : (
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                                <span className="text-white font-medium text-sm">
-                                  {(customer.full_name || customer.email).charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {customer.full_name || 'No Name'}
-                            </div>
-                            <div className="text-sm text-gray-500">{customer.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {customer.phone ? (
-                            customer.phone
+                        
+                        <div className="flex-shrink-0">
+                          {customer.avatar_url ? (
+                            <Image
+                              className="h-12 w-12 sm:h-16 sm:w-16 rounded-full"
+                              src={customer.avatar_url}
+                              alt={customer.full_name || customer.email}
+                              width={64}
+                              height={64}
+                            />
                           ) : (
-                            <span className="text-gray-400">No Phone</span>
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                              <span className="text-white font-medium text-lg sm:text-xl">
+                                {(customer.full_name || customer.email).charAt(0).toUpperCase()}
+                              </span>
+                            </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{customer.total_orders}</div>
-                        <div className="text-sm text-gray-500">
-                          {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString() : 'No orders'}
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {customer.full_name || 'No Name'}
+                              </h3>
+                              <p className="text-sm text-gray-600 truncate">{customer.email}</p>
+                              {customer.phone && (
+                                <p className="text-sm text-gray-500">{customer.phone}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <Badge className={segmentColors[customer.customer_segment]}>
+                                {customer.customer_segment.charAt(0).toUpperCase() + customer.customer_segment.slice(1)}
+                              </Badge>
+                              <Badge className={`${customer.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {customer.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          ₦{customer.total_spent.toLocaleString()}
+                      </div>
+
+                      {/* Customer Stats Grid */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                          <div className="text-lg font-bold text-gray-800">{customer.total_orders}</div>
+                          <div className="text-xs text-gray-600">Orders</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={segmentColors[customer.customer_segment]}>
-                          {customer.customer_segment.charAt(0).toUpperCase() + customer.customer_segment.slice(1)}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={`${customer.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {customer.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {new Date(customer.created_at).toLocaleDateString()}
+                        <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                          <div className="text-lg font-bold text-gray-800">₦{customer.total_spent.toLocaleString()}</div>
+                          <div className="text-xs text-gray-600">Total Spent</div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {Math.floor((Date.now() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60 * 24))} days ago
+                        <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                          <div className="text-sm font-medium text-gray-800">
+                            {customer.last_order_date ? new Date(customer.last_order_date).toLocaleDateString() : 'Never'}
+                          </div>
+                          <div className="text-xs text-gray-600">Last Order</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center justify-center gap-2">
-                          <Link href={`/admin/customers/${customer.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-700"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </Link>
-                          <Link href={`/admin/customers/${customer.id}/edit`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-green-600 hover:text-green-700"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </Link>
+                        <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                          <div className="text-sm font-medium text-gray-800">
+                            {Math.floor((Date.now() - new Date(customer.created_at).getTime()) / (1000 * 60 * 60 * 24))} days
+                          </div>
+                          <div className="text-xs text-gray-600">Member Since</div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
+                        <Link href={`/admin/customers/${customer.id}`}>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="text-purple-600 hover:text-purple-700"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           >
-                            <Mail className="w-4 h-4" />
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
                           </Button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                        </Link>
+                        <Link href={`/admin/customers/${customer.id}/edit`}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                        >
+                          <Mail className="w-4 h-4 mr-1" />
+                          Email
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
             </div>
           )}
         </motion.div>

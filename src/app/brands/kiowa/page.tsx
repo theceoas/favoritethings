@@ -22,10 +22,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import ProductDetailModal from '@/components/ProductDetailModal'
+import ProductSheet from '@/components/ProductSheet'
+import ProductTileWithQuickAdd from '@/components/ProductTileWithQuickAdd'
 import CartIcon from '@/components/CartIcon'
 import { useCartStore } from '@/lib/store/cartStore'
 import { toast } from 'sonner'
+import { isProductAvailable } from '@/lib/utils/inventory'
 
 interface Product {
   id: string
@@ -53,6 +55,15 @@ interface Product {
       }
     }
   }[]
+  has_variants?: boolean
+  track_inventory?: boolean
+  variants?: Array<{
+    id: string
+    is_active: boolean
+    inventory_quantity: number
+    track_inventory?: boolean
+    allow_backorder?: boolean
+  }>
 }
 
 interface Brand {
@@ -232,8 +243,8 @@ export default function KiowaBrandPage() {
   }
 
   const handleProductClick = (product: Product) => {
-    setSelectedProduct(product)
-    setIsModalOpen(true)
+    // Navigate to individual product page
+    window.location.href = `/products/${product.slug}`
   }
 
   const handleCloseModal = () => {
@@ -361,7 +372,7 @@ export default function KiowaBrandPage() {
                 className="mt-6"
               >
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
-                  {filteredAndSortedProducts.filter(p => p.is_featured).slice(0, 5).map((product) => (
+                  {products.filter(p => p.is_featured).slice(0, 5).map((product) => (
                     <motion.div
                       key={product.id}
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -370,13 +381,13 @@ export default function KiowaBrandPage() {
                       className="group cursor-pointer"
                       onClick={() => handleProductClick(product)}
                     >
-                      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 aspect-[3/4]">
-                        <div className="relative h-48 bg-gray-100">
+                      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300">
+                        <div className="relative aspect-[3/4] bg-gray-100">
                           {product.featured_image ? (
                             <img
                               src={product.featured_image}
                               alt={product.title}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -397,7 +408,7 @@ export default function KiowaBrandPage() {
                             </Badge>
                           )}
                           
-                          {product.inventory_quantity === 0 && (
+                          {!isProductAvailable(product) && (
                             <Badge className="absolute top-2 right-2 bg-red-500 text-white">
                               Out of Stock
                             </Badge>
@@ -564,90 +575,16 @@ export default function KiowaBrandPage() {
           )}
 
           {/* Products Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
-            {filteredAndSortedProducts.map((product) => (
-              <motion.div
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
+            {filteredAndSortedProducts.map((product, index) => (
+              <ProductTileWithQuickAdd
                 key={product.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="group cursor-pointer"
-                onClick={() => handleProductClick(product)}
-              >
-                <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 aspect-[3/4]">
-                  <div className="relative h-48 bg-gray-100">
-                    {product.featured_image ? (
-                      <img
-                        src={product.featured_image}
-                        alt={product.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-12 h-12 text-gray-400" />
-                      </div>
-                    )}
-                    
-                    {product.is_featured && (
-                      <Badge className="absolute top-2 left-2 bg-amber-500 text-white">
-                        <Star className="w-3 h-3 mr-1" />
-                        Featured
-                      </Badge>
-                    )}
-                    
-                    {product.compare_at_price && product.compare_at_price > product.price && !product.is_featured && (
-                      <Badge className="absolute top-2 left-2 bg-orange-500 text-white">
-                        {getDiscountPercentage(product.price, product.compare_at_price)}% OFF
-                      </Badge>
-                    )}
-                    
-                    {product.inventory_quantity === 0 && (
-                      <Badge className="absolute top-2 right-2 bg-red-500 text-white">
-                        Out of Stock
-                      </Badge>
-                    )}
-                    
-                    <Button
-                      size="sm"
-                      className="absolute bottom-2 right-2 bg-orange-500 hover:bg-orange-600 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (product.inventory_quantity > 0) {
-                          addItem({
-                            id: product.id,
-                            title: product.title,
-                            slug: product.slug,
-                            price: product.price,
-                            featured_image: product.featured_image,
-                            sku: product.sku || '',
-                            inventory_quantity: product.inventory_quantity,
-                            track_inventory: true
-                          })
-                          toast.success(`${product.title} added to cart!`)
-                        }
-                      }}
-                    >
-                      <ShoppingBag className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="p-3">
-                    <h3 className="font-semibold text-gray-800 text-sm mb-1 line-clamp-2">
-                      {product.title}
-                    </h3>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-amber-600">
-                        {formatPrice(product.price)}
-                      </span>
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <span className="text-xs text-gray-500 line-through">
-                          {formatPrice(product.compare_at_price)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                product={product}
+                onClick={handleProductClick}
+                formatPrice={formatPrice}
+                index={index}
+                showSizes={false}
+              />
             ))}
           </div>
 
@@ -679,8 +616,8 @@ export default function KiowaBrandPage() {
         </div>
       </motion.section>
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
+      {/* Product Detail Sheet */}
+      <ProductSheet
         product={selectedProduct}
         isOpen={isModalOpen}
         onClose={handleCloseModal}

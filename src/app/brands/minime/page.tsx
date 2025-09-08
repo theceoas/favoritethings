@@ -22,9 +22,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import ProductDetailModal from '@/components/ProductDetailModal'
+import ProductSheet from '@/components/ProductSheet'
+import ProductTileWithQuickAdd from '@/components/ProductTileWithQuickAdd'
 import { useCartStore } from '@/lib/store/cartStore'
 import { toast } from 'sonner'
+import { isProductAvailable } from '@/lib/utils/inventory'
 
 interface Product {
   id: string
@@ -52,9 +54,16 @@ interface Product {
       }
     }
   }[]
+  has_variants?: boolean
+  track_inventory?: boolean
+  variants?: Array<{
+    id: string
+    is_active: boolean
+    inventory_quantity: number
+    track_inventory?: boolean
+    allow_backorder?: boolean
+  }>
 }
-
-
 
 interface Brand {
   id: string
@@ -84,8 +93,7 @@ export default function MiniMeBrandPage() {
 
   const [allFilterOptions, setAllFilterOptions] = useState<Map<string, { category: string, option: string, count: number }>>(new Map())
   const [selectedFilters, setSelectedFilters] = useState<Set<string>>(new Set())
-  const [showBestSellers, setShowBestSellers] = useState(false)
-  const [showNewArrivals, setShowNewArrivals] = useState(false)
+  const [showFeaturedProducts, setShowFeaturedProducts] = useState(false)
 
   useEffect(() => {
     fetchBrandData()
@@ -254,8 +262,8 @@ export default function MiniMeBrandPage() {
   }
 
   const handleProductClick = (product: Product) => {
-    setSelectedProduct(product)
-    setIsModalOpen(true)
+    // Navigate to individual product page
+    window.location.href = `/products/${product.slug}`
   }
 
   const handleCloseModal = () => {
@@ -351,7 +359,7 @@ export default function MiniMeBrandPage() {
         </div>
       </motion.div>
 
-            {/* Best Sellers Card */}
+            {/* Featured Products Card */}
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -363,29 +371,29 @@ export default function MiniMeBrandPage() {
                 <motion.div
                   whileHover={{ y: -2, scale: 1.01 }}
                   className="group cursor-pointer"
-              onClick={() => setShowBestSellers(!showBestSellers)}
+              onClick={() => setShowFeaturedProducts(!showFeaturedProducts)}
             >
               <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <CardContent className="p-6 sm:p-8">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="bg-green-500 p-3 rounded-full">
-                        <TrendingUp className="w-6 h-6 text-white" />
+                        <Star className="w-6 h-6 text-white" />
                       </div>
                       <div>
                         <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-1">
-                          Best Sellers
+                          Featured Products
                         </h2>
                         <p className="text-green-700 text-sm">
-                          Our most popular products loved by customers
+                          Our handpicked featured products
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-green-600 font-medium">
-                        {products.filter(p => p.is_active).length} products
+                        {products.filter(p => p.is_featured).length} featured products
                       </span>
-                      {showBestSellers ? (
+                      {showFeaturedProducts ? (
                         <ChevronUp className="w-5 h-5 text-green-600" />
                       ) : (
                         <ChevronDown className="w-5 h-5 text-green-600" />
@@ -396,8 +404,8 @@ export default function MiniMeBrandPage() {
               </Card>
             </motion.div>
             
-            {/* Expanded Best Sellers Products */}
-            {showBestSellers && (
+            {/* Expanded Featured Products */}
+            {showFeaturedProducts && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -407,8 +415,8 @@ export default function MiniMeBrandPage() {
               >
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
                   {products
-                    .filter(p => p.is_active)
-                    .sort((a, b) => (b.inventory_quantity || 0) - (a.inventory_quantity || 0)) // Sort by popularity (inventory as proxy)
+                    .filter(p => p.is_featured)
+                    .slice(0, 5)
                     .map((product, index) => (
                       <motion.div
                         key={product.id}
@@ -427,10 +435,10 @@ export default function MiniMeBrandPage() {
                                   src={product.featured_image}
                                   alt={product.title}
                                   className="w-full h-full"
-                          style={{ objectFit: "cover" }}
+                          style={{ objectFit: "contain" }}
                         />
                       ) : (
-                        <div className="w-full h-full relative overflow-hidden">
+                        <div className="w-full h-full flex items-center justify-center">
                                   <Package className="w-16 h-16 text-gray-400" />
                         </div>
                       )}
@@ -439,11 +447,11 @@ export default function MiniMeBrandPage() {
                             {/* Badges */}
                             <div className="absolute top-2 left-2 space-y-1">
                               <Badge className="bg-green-500 text-white text-xs px-2 py-1">
-                                <TrendingUp className="w-2 h-2 mr-1" />
-                                Popular
+                                <Star className="w-3 h-3 mr-1" />
+                                Featured
                               </Badge>
                               {product.compare_at_price && product.compare_at_price > product.price && (
-                                <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
+                                <Badge className="bg-orange-500 text-white text-xs px-2 py-1">
                                   -{getDiscountPercentage(product.price, product.compare_at_price)}%
                         </Badge>
                       )}
@@ -451,7 +459,7 @@ export default function MiniMeBrandPage() {
 
                             {/* Quick Add Button */}
                             <div className="absolute bottom-2 right-2">
-                              {product.inventory_quantity > 0 ? (
+                              {isProductAvailable(product) ? (
                                 <Button 
                                   size="sm" 
                                   className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
@@ -474,7 +482,7 @@ export default function MiniMeBrandPage() {
                                     }
                                   }}
                                 >
-                                  <span className="text-lg font-bold text-[#6A41A1]">+</span>
+                                  <span className="text-lg font-bold text-green-600">+</span>
                                 </Button>
                               ) : (
                                 <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-md">
@@ -490,7 +498,7 @@ export default function MiniMeBrandPage() {
                       </h3>
                             
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-[#4F4032]">
+                              <span className="text-sm font-semibold text-green-600">
                                 {formatPrice(product.price)}
                               </span>
                               {product.compare_at_price && product.compare_at_price > product.price && (
@@ -509,165 +517,6 @@ export default function MiniMeBrandPage() {
           </div>
         </div>
       </motion.section>
-
-      {/* New Arrivals Card */}
-      <motion.section
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="py-6 sm:py-12"
-      >
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              whileHover={{ y: -2, scale: 1.01 }}
-              className="group cursor-pointer"
-              onClick={() => setShowNewArrivals(!showNewArrivals)}
-            >
-              <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <CardContent className="p-6 sm:p-8">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="bg-green-500 p-3 rounded-full">
-                        <Sparkles className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-green-800 mb-1">
-                          New Arrivals
-                        </h2>
-                        <p className="text-green-700 text-sm">
-                          Fresh styles just added to our collection
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-green-600 font-medium">
-                        {products.filter(p => p.is_active).length} products
-                      </span>
-                      {showNewArrivals ? (
-                        <ChevronUp className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-green-600" />
-                      )}
-                    </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-            </motion.div>
-            
-            {/* Expanded New Arrivals Products */}
-            {showNewArrivals && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="mt-6"
-              >
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
-                  {products
-                    .filter(p => p.is_active)
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Sort by newest first
-                    .map((product, index) => (
-                      <motion.div
-                        key={product.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        whileHover={{ y: -5, scale: 1.02 }}
-                        className="group cursor-pointer"
-                        onClick={() => handleProductClick(product)}
-                      >
-                        <div className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300">
-                          <div className="relative">
-                            <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
-                              {product.featured_image ? (
-                                <img
-                                  src={product.featured_image}
-                                  alt={product.title}
-                                  className="w-full h-full"
-                                  style={{ objectFit: "cover" }}
-                                />
-                              ) : (
-                                <div className="w-full h-full relative overflow-hidden">
-                                  <Package className="w-16 h-16 text-gray-400" />
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Badges */}
-                            <div className="absolute top-2 left-2 space-y-1">
-                              <Badge className="bg-green-500 text-white text-xs px-2 py-1">
-                                <Sparkles className="w-2 h-2 mr-1" />
-                                New
-                              </Badge>
-                              {product.compare_at_price && product.compare_at_price > product.price && (
-                                <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
-                                  -{getDiscountPercentage(product.price, product.compare_at_price)}%
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Quick Add Button */}
-                            <div className="absolute bottom-2 right-2">
-                              {product.inventory_quantity > 0 ? (
-                                <Button 
-                                  size="sm" 
-                                  className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
-                                  onClick={async (e) => {
-                                    e.stopPropagation()
-                                    try {
-                                      await addItem({
-                                        id: product.id,
-                                        title: product.title,
-                                        slug: product.slug,
-                                        price: product.price,
-                                        featured_image: product.featured_image,
-                                        sku: product.sku || '',
-                                        inventory_quantity: product.inventory_quantity,
-                                        track_inventory: true
-                                      })
-                                      toast.success(`${product.title} added to cart!`)
-                                    } catch (error) {
-                                      toast.error('Failed to add item to cart')
-                                    }
-                                  }}
-                                >
-                                  <span className="text-lg font-bold text-[#6A41A1]">+</span>
-                                </Button>
-                              ) : (
-                                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-md">
-                                  <span className="text-xs font-bold text-white">×</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="p-3">
-                            <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
-                              {product.title}
-                            </h3>
-                            
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-[#4F4032]">
-                                {formatPrice(product.price)}
-                              </span>
-                              {product.compare_at_price && product.compare_at_price > product.price && (
-                                <span className="text-xs text-gray-500 line-through">
-                                  {formatPrice(product.compare_at_price)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                </motion.div>
-              ))}
-                </div>
-              </motion.div>
-            )}
-            </div>
-          </div>
-        </motion.section>
 
       {/* Products Section */}
       <motion.section
@@ -724,105 +573,17 @@ export default function MiniMeBrandPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8"
           >
                 {filteredAndSortedProducts.map((product, index) => (
-                  <motion.div
+                  <ProductTileWithQuickAdd
                     key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    whileHover={{ y: -5, scale: 1.02 }}
-                    className="group"
-                  >
-                    <div 
-                      className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
-                      onClick={() => handleProductClick(product)}
-                    >
-                      <div className="relative">
-                        <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
-                        {product.featured_image ? (
-                          <img
-                            src={product.featured_image}
-                            alt={product.title}
-                              className="w-full h-full"
-                            style={{ objectFit: "cover" }}
-                          />
-                        ) : (
-                            <div className="w-full h-full relative overflow-hidden">
-                              <Package className="w-16 h-16 text-gray-400" />
-                          </div>
-                        )}
-                        </div>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-2 left-2 space-y-1">
-                        {product.is_featured && (
-                            <Badge className="bg-green-500 text-white text-xs px-2 py-1">
-                              <Star className="w-2 h-2 mr-1" />
-                            Featured
-                          </Badge>
-                        )}
-                        {product.compare_at_price && product.compare_at_price > product.price && (
-                            <Badge className="bg-[#6A41A1] text-white text-xs px-2 py-1">
-                              -{getDiscountPercentage(product.price, product.compare_at_price)}%
-                          </Badge>
-                        )}
-                      </div>
-                      
-                        {/* Quick Add Button */}
-                        <div className="absolute bottom-2 right-2">
-                          {product.inventory_quantity > 0 ? (
-                            <Button 
-                              size="sm" 
-                              className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                try {
-                                  await addItem({
-                                    id: product.id,
-                                    title: product.title,
-                                    slug: product.slug,
-                                    price: product.price,
-                                    featured_image: product.featured_image,
-                                    sku: product.sku || '',
-                                    inventory_quantity: product.inventory_quantity,
-                                    track_inventory: true
-                                  })
-                                  toast.success(`${product.title} added to cart!`)
-                                } catch (error) {
-                                  toast.error('Failed to add item to cart')
-                                }
-                              }}
-                            >
-                              <span className="text-lg font-bold text-[#6A41A1]">+</span>
-                            </Button>
-                          ) : (
-                            <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
-                              Out of Stock
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="p-3">
-                        <h3 className="font-medium text-[#4F4032] mb-1 line-clamp-2 text-sm">
-                          {product.title}
-                        </h3>
-                        
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-[#4F4032]">
-                            {formatPrice(product.price)}
-                          </span>
-                          {product.compare_at_price && product.compare_at_price > product.price && (
-                            <span className="text-xs text-gray-500 line-through">
-                              {formatPrice(product.compare_at_price)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
+                    product={product}
+                    onClick={handleProductClick}
+                    formatPrice={formatPrice}
+                    index={index}
+                    showSizes={false}
+                  />
                 ))}
               </motion.div>
                 
@@ -852,8 +613,8 @@ export default function MiniMeBrandPage() {
         </div>
       </motion.section>
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
+      {/* Product Detail Sheet */}
+      <ProductSheet
         product={selectedProduct}
         isOpen={isModalOpen}
         onClose={handleCloseModal}

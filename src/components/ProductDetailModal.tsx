@@ -74,7 +74,7 @@ export default function ProductDetailModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -94,13 +94,12 @@ export default function ProductDetailModal({
             <div className="p-6">
               {/* Main Image */}
               <div className="relative mb-6">
-                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gray-100">
+                <div className="aspect-[9/16] overflow-hidden bg-gray-100">
                   {product.featured_image ? (
                     <img
                       src={product.featured_image}
                       alt={product.title}
-                      className="w-full h-full"
-                      style={{ objectFit: 'cover' }}
+                      className="w-full h-full object-cover object-top"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-400">

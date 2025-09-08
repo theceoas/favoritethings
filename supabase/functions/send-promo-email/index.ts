@@ -64,7 +64,7 @@ serve(async (req) => {
             </div>
             
             <a 
-              href="https://bedznbuttunz.com/shop" 
+              href="https://favoritethings.ng/shop" 
               style="display: inline-block; background-color: #6A41A1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; margin: 20px 0;"
             >
               Shop Now

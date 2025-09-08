@@ -274,21 +274,21 @@ export default function AdminFiltersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Filter Management</h1>
-              <p className="text-gray-600 mt-2">Manage product filters, sizes, materials, colors, and categories</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Filter Management</h1>
+              <p className="text-gray-600 mt-1 sm:mt-2 text-sm sm:text-base">Manage product filters, sizes, materials, colors, and categories</p>
             </div>
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <Button 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
                 onClick={() => setShowCategoryForm(true)}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -297,6 +297,7 @@ export default function AdminFiltersPage() {
               <Button 
                 variant="outline"
                 onClick={() => setShowOptionForm(true)}
+                className="w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Option
@@ -309,20 +310,20 @@ export default function AdminFiltersPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-4 sm:mb-6"
         >
           <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-1">Filter by Brand</h3>
-                  <p className="text-sm text-gray-600">Select a brand to view filters specific to that brand</p>
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1">Filter by Brand</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">Select a brand to view filters specific to that brand</p>
                 </div>
                 <div className="flex items-center space-x-3">
                   <select
                     value={selectedBrand}
                     onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full sm:w-auto px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="all">All Brands</option>
                     {brands.map((brand) => (
@@ -341,65 +342,65 @@ export default function AdminFiltersPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8"
         >
           <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-blue-600">Total Categories</p>
-                  <p className="text-2xl font-bold text-blue-800">{categories.length}</p>
+                  <p className="text-xs sm:text-sm text-blue-600">Total Categories</p>
+                  <p className="text-xl sm:text-2xl font-bold text-blue-800">{categories.length}</p>
                 </div>
-                <Filter className="w-8 h-8 text-blue-600" />
+                <Filter className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-green-50 border-green-200">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-green-600">Total Options</p>
-                  <p className="text-2xl font-bold text-green-800">
+                  <p className="text-xs sm:text-sm text-green-600">Total Options</p>
+                  <p className="text-xl sm:text-2xl font-bold text-green-800">
                     {options.length}
                   </p>
                 </div>
-                <Tag className="w-8 h-8 text-green-600" />
+                <Tag className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-purple-50 border-purple-200">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-purple-600">Active Categories</p>
-                  <p className="text-2xl font-bold text-purple-800">
+                  <p className="text-xs sm:text-sm text-purple-600">Active Categories</p>
+                  <p className="text-xl sm:text-2xl font-bold text-purple-800">
                     {categories.filter(c => c.is_active).length}
                   </p>
                 </div>
-                <Eye className="w-8 h-8 text-purple-600" />
+                <Eye className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
               </div>
             </CardContent>
           </Card>
           
           <Card className="bg-orange-50 border-orange-200">
-            <CardContent className="p-4">
+            <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-orange-600">Active Options</p>
-                  <p className="text-2xl font-bold text-orange-800">
+                  <p className="text-xs sm:text-sm text-orange-600">Active Options</p>
+                  <p className="text-xl sm:text-2xl font-bold text-orange-800">
                     {options.filter(o => o.is_active).length}
                   </p>
                 </div>
-                <Star className="w-8 h-8 text-orange-600" />
+                <Star className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
         </motion.div>
 
         {/* Filter Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {categories.map((category, index) => (
             <motion.div
               key={category.id}

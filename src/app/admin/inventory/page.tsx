@@ -35,7 +35,6 @@ interface ProductWithInventory {
   low_stock_threshold: number
   track_inventory: boolean
   is_active: boolean
-  has_variants: boolean
   variants?: ProductVariant[]
   featured_image?: string
   type?: 'product' | 'other' // Add type to distinguish between products and others
@@ -124,28 +123,46 @@ export default function InventoryManagementPage() {
 
   const loadProducts = async () => {
     try {
-      // Try using the products_with_variants view first
-      const { data: viewData, error: viewError } = await supabase
-        .from('products_with_variants')
-        .select('*')
+      // Get products with their variants
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          sku,
+          barcode,
+          inventory_quantity,
+          low_stock_threshold,
+          track_inventory,
+          is_active,
+          featured_image,
+          variants:product_variants (
+            id,
+            title,
+            sku,
+            barcode,
+            inventory_quantity,
+            low_stock_threshold,
+            track_inventory,
+            is_active,
+            size,
+            color,
+            material
+          )
+        `)
         .eq('is_active', true)
         .order('title', { ascending: true })
 
-      if (viewError) {
-        console.log('Products view not available, using fallback query:', viewError.message)
-        
-        // Fallback: Get products directly
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .order('title', { ascending: true })
-
-        if (!productsError && productsData) {
-          setProducts(productsData)
-        }
-      } else if (viewData) {
-        setProducts(viewData)
+      if (productsError) {
+        console.error('Error loading products:', productsError)
+        toast.error('Failed to load products')
+      } else if (productsData) {
+        // Add type field to distinguish products from others
+        const productsWithType = productsData.map(product => ({
+          ...product,
+          type: 'product' as const
+        }))
+        setProducts(productsWithType)
       }
     } catch (error) {
       console.error('Error loading products:', error)
@@ -172,7 +189,6 @@ export default function InventoryManagementPage() {
           low_stock_threshold: item.low_stock_threshold || 5,
           track_inventory: item.track_inventory !== false,
           is_active: item.is_active,
-          has_variants: false,
           featured_image: item.image_url,
           type: 'other' as const,
           category: item.category,
@@ -471,34 +487,34 @@ export default function InventoryManagementPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-orange-400 to-red-500 rounded-xl sm:rounded-2xl shadow-lg"
                 >
-                  <Package className="w-8 h-8 text-white" />
+                  <Package className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">Stock Management</h1>
-                  <p className="text-gray-600 text-lg">Track inventory across all brands - Kiowa, Omogebyify, and MiniMe
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">Stock Management</h1>
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">Track inventory across all brands - Kiowa, Omogebyify, and MiniMe
                     {quickSaleMode 
-                      ? '🏪 Store Sale Mode: Search products by code and quickly process in-store sales'
-                      : 'Monitor and manage inventory levels across all products'
+                      ? ' 🏪 Store Sale Mode: Search products by code and quickly process in-store sales'
+                      : ' Monitor and manage inventory levels across all products'
                     }
                   </p>
                 </div>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 {/* Quick Sale Mode Toggle */}
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -511,7 +527,7 @@ export default function InventoryManagementPage() {
                       quickSaleMode 
                         ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                         : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300'
-                    } px-6 py-3 rounded-xl transition-all duration-200 flex items-center gap-2 font-medium`}
+                    } px-4 sm:px-6 py-2 sm:py-3 rounded-xl transition-all duration-200 flex items-center gap-2 font-medium w-full sm:w-auto justify-center`}
                   >
                     🏪 {quickSaleMode ? 'Exit Store Mode' : 'Store Sale Mode'}
                   </Button>
@@ -523,9 +539,9 @@ export default function InventoryManagementPage() {
                   <Button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 shadow-lg font-medium"
+                    className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 disabled:opacity-50 shadow-lg font-medium w-full sm:w-auto justify-center"
                   >
-                    <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${refreshing ? 'animate-spin' : ''}`} />
                     {refreshing ? 'Refreshing...' : 'Refresh'}
                   </Button>
                 </motion.div>
@@ -542,18 +558,18 @@ export default function InventoryManagementPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.95 }}
               transition={{ duration: 0.3 }}
-              className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-2xl p-6 mb-8 shadow-lg"
+              className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 shadow-lg"
             >
-              <div className="flex items-center gap-4 mb-4">
-                <h3 className="text-xl font-bold text-orange-800">🏪 In-Store Sale Controls</h3>
-                <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-orange-200">
-                  <label className="text-sm font-semibold text-orange-700">Sale Quantity:</label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4">
+                <h3 className="text-lg sm:text-xl font-bold text-orange-800">🏪 In-Store Sale Controls</h3>
+                <div className="flex items-center gap-3 bg-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border border-orange-200">
+                  <label className="text-xs sm:text-sm font-semibold text-orange-700">Sale Quantity:</label>
                   <input
                     type="number"
                     min="1"
                     value={saleQuantity}
                     onChange={(e) => setSaleQuantity(parseInt(e.target.value) || 1)}
-                    className="w-20 px-3 py-1 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-medium"
+                    className="w-16 sm:w-20 px-2 sm:px-3 py-1 border border-orange-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent font-medium text-sm"
                   />
                 </div>
               </div>
@@ -566,49 +582,52 @@ export default function InventoryManagementPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
-            <div className="flex flex-col lg:flex-row gap-4">
+          <div className="bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="flex flex-col gap-3 sm:gap-4">
               {/* Search Bar */}
-              <div className="flex-1">
+              <div className="w-full">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search products by name, SKU, or barcode..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                    className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                   />
                 </div>
               </div>
               
-              {/* Item Type Filter */}
-              <div className="lg:w-48">
-                <select
-                  value={itemTypeFilter}
-                  onChange={(e) => setItemTypeFilter(e.target.value as any)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
-                >
-                  <option value="all">All Items</option>
-                  <option value="products">Products Only</option>
-                  <option value="others">Others Only</option>
-                </select>
-              </div>
-              
-              {/* Filter Dropdown */}
-              <div className="lg:w-48">
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as any)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
-                >
-                  <option value="all">All Products</option>
-                  <option value="low_stock">Low Stock</option>
-                  <option value="out_of_stock">Out of Stock</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Item Type Filter */}
+                <div>
+                  <select
+                    value={itemTypeFilter}
+                    onChange={(e) => setItemTypeFilter(e.target.value as any)}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                  >
+                    <option value="all">All Items</option>
+                    <option value="products">Products Only</option>
+                    <option value="others">Others Only</option>
+                  </select>
+                </div>
+                
+                {/* Filter Dropdown */}
+                <div>
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as any)}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
+                  >
+                    <option value="all">All Products</option>
+                    <option value="low_stock">Low Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -619,7 +638,7 @@ export default function InventoryManagementPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"
         >
           {allItems.map((item, index) => (
             <motion.div
@@ -662,33 +681,71 @@ export default function InventoryManagementPage() {
 
                   {/* Stock Information */}
                   <div className="space-y-3 mb-4">
-                    {item.type === 'product' && item.has_variants ? (
+                    {item.type === 'product' && item.variants && item.variants.length > 0 ? (
                       <div>
                         <div className="text-sm font-semibold text-gray-700 mb-2">Variants:</div>
                         {item.variants?.map((variant) => {
                           const stockStatus = getStockStatus(variant.inventory_quantity, variant.low_stock_threshold, variant.track_inventory)
                           return (
-                            <div key={variant.id} className="bg-gray-50 rounded-lg p-3 mb-2">
+                            <div key={variant.id} className="bg-blue-50 rounded-lg p-3 mb-2 border border-blue-200">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium text-gray-800">{variant.title}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-blue-900">{variant.title}</span>
+                                  {variant.size && (
+                                    <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                                      Size: {variant.size}
+                                    </Badge>
+                                  )}
+                                  {variant.color && (
+                                    <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
+                                      Color: {variant.color}
+                                    </Badge>
+                                  )}
+                                </div>
                                 <Badge className={`${stockStatus.bg} ${stockStatus.color}`}>
                                   {stockStatus.text}
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-600">
-                                  Stock: {variant.inventory_quantity}
-                                </span>
-                                {quickSaleMode && (
-                                  <Button
-                                    onClick={() => processVariantQuickSale(variant.id)}
-                                    disabled={processingQuickSale === variant.id || variant.inventory_quantity === 0}
-                                    size="sm"
-                                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                                  >
-                                    {processingQuickSale === variant.id ? 'Processing...' : 'Quick Sale'}
-                                  </Button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-blue-700 font-medium">
+                                    Stock: {variant.inventory_quantity}
+                                  </span>
+                                  <span className="text-xs text-blue-600">
+                                    SKU: {variant.sku}
+                                  </span>
+                                  {variant.barcode && (
+                                    <span className="text-xs text-blue-600">
+                                      Barcode: {variant.barcode}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  {!quickSaleMode && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingVariant(variant.id)
+                                        setNewQuantity(variant.inventory_quantity)
+                                      }}
+                                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                                    >
+                                      <PencilIcon className="w-3 h-3 mr-1" />
+                                      Update
+                                    </Button>
+                                  )}
+                                  {quickSaleMode && (
+                                    <Button
+                                      onClick={() => processVariantQuickSale(variant.id)}
+                                      disabled={processingQuickSale === variant.id || variant.inventory_quantity === 0}
+                                      size="sm"
+                                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                                    >
+                                      {processingQuickSale === variant.id ? 'Processing...' : 'Quick Sale'}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )
@@ -799,6 +856,83 @@ export default function InventoryManagementPage() {
                     </Button>
                   </div>
                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Edit Variant Inventory Modal */}
+        <AnimatePresence>
+          {editingVariant && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl p-6 w-full max-w-md"
+              >
+                <h3 className="text-lg font-bold mb-4 text-blue-900">Update Variant Inventory</h3>
+                {(() => {
+                  const variant = products
+                    .flatMap(p => p.variants || [])
+                    .find(v => v.id === editingVariant)
+                  return variant ? (
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <div className="text-sm font-medium text-blue-900 mb-1">{variant.title}</div>
+                        <div className="flex gap-2">
+                          {variant.size && (
+                            <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                              Size: {variant.size}
+                            </Badge>
+                          )}
+                          {variant.color && (
+                            <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
+                              Color: {variant.color}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-blue-600 mt-1">SKU: {variant.sku}</div>
+                        <div className="text-xs text-blue-600">Current Stock: {variant.inventory_quantity}</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          New Quantity
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={newQuantity}
+                          onChange={(e) => setNewQuantity(parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <Button
+                          onClick={() => updateVariantInventory(editingVariant, newQuantity)}
+                          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                        >
+                          Update Variant
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setEditingVariant(null)
+                            setNewQuantity(0)
+                          }}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null
+                })()}
               </motion.div>
             </motion.div>
           )}

@@ -34,6 +34,7 @@ interface Notification {
 interface NotificationPanelProps {
   isOpen: boolean
   onClose: () => void
+  onUnreadCountChange?: (count: number) => void
 }
 
 const getNotificationIcon = (type: string) => {
@@ -93,7 +94,7 @@ const formatTimeAgo = (dateString: string) => {
   }
 }
 
-export default function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
+export default function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: NotificationPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -174,6 +175,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
       console.log('📊 Notifications fetched:', allNotifications?.length, 'Unread:', count)
       setNotifications(allNotifications || [])
       setUnreadCount(count || 0)
+      onUnreadCountChange?.(count || 0)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     } finally {
@@ -201,33 +203,15 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
             : notif
         )
       )
-      setUnreadCount(prev => Math.max(0, prev - 1))
+      const newCount = Math.max(0, unreadCount - 1)
+      setUnreadCount(newCount)
+      onUnreadCountChange?.(newCount)
     } catch (error) {
       console.error('Error marking notification as read:', error)
     }
   }
 
-  const markAllAsRead = async () => {
-    try {
-      const { error } = await supabase
-        .from('admin_notifications')
-        .update({
-          is_read: true,
-          read_at: new Date().toISOString()
-        })
-        .eq('is_read', false)
 
-      if (error) throw error
-
-      // Update local state
-      setNotifications(prev => 
-        prev.map(notif => ({ ...notif, is_read: true, read_at: new Date().toISOString() }))
-      )
-      setUnreadCount(0)
-    } catch (error) {
-      console.error('Error marking all notifications as read:', error)
-    }
-  }
 
   const handleNotificationClick = (notification: Notification) => {
     // Mark as read
@@ -288,16 +272,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                 >
                   Refresh
                 </Button>
-                {unreadCount > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={markAllAsRead}
-                    className="text-xs text-gray-600 hover:text-gray-800"
-                  >
-                    Mark all read
-                  </Button>
-                )}
+
                 <Button
                   variant="ghost"
                   size="sm"

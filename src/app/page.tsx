@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { motion, AnimatePresence, type PanInfo } from "framer-motion"
+import { useState, useEffect, useRef } from "react"
+import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,16 +9,15 @@ import Link from "next/link"
 import { DiscountPopup } from "@/components/discount-popup"
 import { AuthButtons } from "@/components/auth-buttons"
 import CartIcon from "@/components/CartIcon"
-import ProductDetailModal from "@/components/ProductDetailModal"
+import ProductSheet from "@/components/ProductSheet"
+import ProductTile from "@/components/ProductTile"
+import ProductTileWithQuickAdd from "@/components/ProductTileWithQuickAdd"
 import { useCartStore } from "@/lib/store/cartStore"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  ShoppingBag,
   Home,
   Heart,
   ArrowRight,
@@ -31,68 +30,59 @@ import {
   Sparkles,
   Zap,
   Package,
+  Plus,
+  MapPin,
 } from "lucide-react"
 
-const frames = [
+const sections = [
   {
     id: "welcome",
     title: "Welcome",
-    component: "WelcomeFrame",
-    color: "from-yellow-50 to-orange-50",
+    color: "from-yellow-50 to-yellow-100",
   },
   {
     id: "kiowa",
     title: "Kiowa",
-    component: "KiowaFrame",
     color: "from-amber-50 to-yellow-100",
   },
   {
     id: "omege",
             title: "Omogebyify",
-    component: "OmegeFrame",
     color: "from-red-50 to-pink-100",
   },
   {
     id: "minime",
     title: "MiniMe",
-    component: "MiniMeFrame",
     color: "from-green-50 to-emerald-100",
   },
   {
     id: "others",
     title: "Others",
-    component: "OthersFrame",
     color: "from-purple-50 to-pink-100",
   },
   {
     id: "shop-all",
     title: "Shop All",
-    component: "ShopAllFrame",
     color: "from-blue-50 to-indigo-100",
   },
   {
     id: "footer",
     title: "Connect",
-    component: "FooterFrame",
     color: "from-gray-50 to-slate-100",
   },
 ]
 
-function FixedIdentityPanel({
-  currentFrame,
+function FixedNavigationPanel({
+  currentSection,
   onNavigate,
-  onPrev,
-  onNext,
 }: {
-  currentFrame: number
+  currentSection: number
   onNavigate: (index: number) => void
-  onPrev: () => void
-  onNext: () => void
 }) {
   return (
     <>
       {/* Desktop Fixed Panel */}
-      <div className="hidden lg:block fixed left-0 top-0 h-full w-24 bg-gradient-to-b from-yellow-400 to-orange-400 z-50 shadow-2xl">
+      <div className="hidden lg:block fixed left-0 top-0 h-full w-24 z-50 shadow-2xl" style={{background: 'linear-gradient(to bottom, #FFC107, #FFB300)'}}>
         <div className="flex flex-col items-center h-full py-8">
           {/* Logo */}
           <motion.div
@@ -109,12 +99,12 @@ function FixedIdentityPanel({
 
           {/* Navigation Dots */}
           <div className="flex flex-col space-y-4 mb-8">
-            {frames.map((frame, index) => (
+            {sections.map((section, index) => (
               <motion.button
-                key={frame.id}
+                key={section.id}
                 onClick={() => onNavigate(index)}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  currentFrame === index
+                  currentSection === index
                     ? "bg-black scale-125 shadow-lg"
                     : "bg-black/30 hover:bg-black/60"
                 }`}
@@ -146,8 +136,6 @@ function FixedIdentityPanel({
           </div>
         </div>
       </div>
-
-
     </>
   )
 }
@@ -269,7 +257,7 @@ function WelcomeFrame() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-yellow-50 relative pt-16 lg:pt-0 pb-32 lg:pb-0 overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden relative pt-16 lg:pt-0 pb-32 lg:pb-0 overflow-hidden" style={{background: 'linear-gradient(to bottom right, #fafaf9, #ffffff, #fefdf6)'}}>
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
@@ -282,7 +270,8 @@ function WelcomeFrame() {
             repeat: Infinity,
             ease: "linear",
           }}
-          className="absolute top-20 left-20 w-32 h-32 bg-yellow-400/20 rounded-full blur-xl"
+          className="absolute top-20 left-20 w-32 h-32 rounded-full blur-xl"
+          style={{backgroundColor: '#FFC10720'}}
         />
         <motion.div
           animate={{
@@ -306,7 +295,8 @@ function WelcomeFrame() {
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          className="absolute top-1/2 right-20 w-16 h-16 bg-yellow-400/30 rounded-full blur-lg"
+          className="absolute top-1/2 right-20 w-16 h-16 rounded-full blur-lg"
+          style={{backgroundColor: '#FFC10730'}}
         />
       </div>
 
@@ -321,7 +311,8 @@ function WelcomeFrame() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="inline-flex items-center space-x-2 bg-yellow-400 text-black px-4 py-2 rounded-full mb-8 shadow-lg"
+            className="inline-flex items-center space-x-2 text-black px-4 py-2 rounded-full mb-8 shadow-lg"
+            style={{backgroundColor: '#FFC107'}}
           >
             <Sparkles className="w-4 h-4" />
             <span className="font-semibold">Favorite Things</span>
@@ -335,7 +326,8 @@ function WelcomeFrame() {
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.5, duration: 0.8 }}
-              className="text-yellow-500 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent"
+              className="bg-clip-text text-transparent"
+              style={{backgroundImage: 'linear-gradient(to right, #FFC107, #FFD54F)', color: '#FFC107'}}
             >
               Favorite Fashion
             </motion.span>
@@ -445,7 +437,10 @@ function WelcomeFrame() {
             <Link href="/brands">
               <Button
                 size="lg"
-                className="bg-yellow-400 text-black hover:bg-yellow-500 px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                className="text-black px-8 py-4 text-lg font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+            style={{backgroundColor: '#FFC107'}}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#FFB300'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#FFC107'}
               >
                 Explore Collections
                 <ArrowRight className="ml-2 w-5 h-5" />
@@ -484,7 +479,7 @@ function KiowaFrame() {
   ]
 
   return (
-    <div className="min-h-screen flex items-center bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 relative pt-16 lg:pt-0 pb-32 lg:pb-0">
+    <div className="min-h-screen flex items-center relative pt-16 lg:pt-0 pb-32 lg:pb-0" style={{background: 'linear-gradient(to bottom right, #fefdf6, #faf8e7, #f5f2d9)'}}>
       <div className="container mx-auto px-6 py-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <motion.div
@@ -492,13 +487,13 @@ function KiowaFrame() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 1 }}
           >
-            <Badge className="bg-yellow-400 text-black mb-6 px-4 py-2 text-lg shadow-lg">
+            <Badge className="text-black mb-6 px-4 py-2 text-lg shadow-lg" style={{backgroundColor: '#FFC107'}}>
               Kiowa Collection
             </Badge>
             <h2 className="text-4xl md:text-6xl font-bold text-black mb-6 leading-tight">
               Elegant
               <br />
-              <span className="text-yellow-600">Sophistication</span>
+              <span style={{color: '#FFC107'}}>Sophistication</span>
             </h2>
             <p className="text-lg md:text-xl text-gray-600 mb-8 leading-relaxed">
               Timeless pieces that embody grace and refinement. Each garment tells a story of
@@ -506,20 +501,24 @@ function KiowaFrame() {
             </p>
             <div className="flex flex-wrap gap-4 mb-8">
               <div className="flex items-center space-x-2">
-                <Star className="w-5 h-5 text-yellow-400 fill-current" />
+                <Star className="w-5 h-5 fill-current" style={{color: '#FFC107'}} />
                 <span className="text-sm text-gray-600">Premium Quality</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Zap className="w-5 h-5 text-yellow-400" />
+                <Zap className="w-5 h-5" style={{color: '#FFC107'}} />
                 <span className="text-sm text-gray-600">Fast Delivery</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Heart className="w-5 h-5 text-yellow-400" />
+                <Heart className="w-5 h-5" style={{color: '#FFC107'}} />
                 <span className="text-sm text-gray-600">Handcrafted</span>
               </div>
             </div>
             <Link href="/brands/kiowa">
-              <Button className="bg-yellow-400 text-black hover:bg-yellow-500 px-8 py-4 text-lg font-semibold rounded-full shadow-lg">
+              <Button 
+                className="text-black px-8 py-4 text-lg font-semibold rounded-full shadow-lg transition-all duration-300"
+                style={{backgroundColor: '#FFC107'}}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#FFB300'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#FFC107'}>
                 Shop Kiowa
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
@@ -548,16 +547,16 @@ function KiowaFrame() {
                       alt={product.name}
                       className="w-full h-48 object-contain transition-transform duration-500 group-hover:scale-110"
                     />
-                    <div className="absolute top-2 right-2 bg-yellow-400 text-black px-2 py-1 rounded-full text-xs font-semibold">
+                    <div className="absolute top-2 right-2 text-black px-2 py-1 rounded-full text-xs font-semibold" style={{backgroundColor: '#FFC107'}}>
                       New
                     </div>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-2xl font-bold text-yellow-600">{product.price}</span>
+                      <span className="text-2xl font-bold" style={{color: '#FFC107'}}>{product.price}</span>
                       <div className="flex items-center space-x-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <Star className="w-4 h-4 fill-current" style={{color: '#FFC107'}} />
                         <span className="text-sm text-gray-600">{product.rating}</span>
                       </div>
                     </div>
@@ -913,7 +912,7 @@ function OthersFrame() {
                     <img 
                       src={item.image_url} 
                       alt={item.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     <div className="absolute bottom-4 left-4 text-white">
@@ -950,9 +949,20 @@ function ShopAllFrame() {
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  const handleProductClick = (product: any) => {
+    // Navigate to individual product page
+    window.location.href = `/products/${product.slug}`
+  }
+
   useEffect(() => {
     fetchAllProducts()
   }, [])
+
+  const formatPrice = (price: number | string | null | undefined) => {
+    if (price === null || price === undefined) return '₦0'
+    const numPrice = typeof price === 'string' ? parseFloat(price) : price
+    return `₦${numPrice.toLocaleString()}`
+  }
 
   const fetchAllProducts = async () => {
     try {
@@ -997,7 +1007,7 @@ function ShopAllFrame() {
     { name: "Bottoms", count: 28, color: "from-green-400 to-emerald-400" },
     { name: "Accessories", count: 67, color: "from-purple-400 to-violet-400" },
     { name: "Shoes", count: 23, color: "from-orange-400 to-red-400" },
-    { name: "Bags", count: 19, color: "from-yellow-400 to-orange-400" },
+            { name: "Bags", count: 19, color: "from-yellow-400 to-yellow-500" },
   ]
 
   return (
@@ -1036,115 +1046,17 @@ function ShopAllFrame() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 1, delay: 0.3 }}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8"
           >
             {allProducts.map((product, index) => (
-              <motion.div
+              <ProductTile
                 key={product.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -5, scale: 1.02 }}
-                className="group"
-              >
-                <div 
-                  className="bg-white rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
-                  onClick={() => handleProductClick(product)}
-                >
-                  <div className="relative">
-                    <div className="aspect-[3/4] bg-gray-100 relative overflow-hidden">
-                      {product.featured_image ? (
-                        <img
-                          src={product.featured_image}
-                          alt={product.title}
-                          className="w-full h-full"
-                          style={{ objectFit: "cover" }}
-                        />
-                      ) : (
-                        <div className="w-full h-full relative overflow-hidden flex items-center justify-center">
-                          <Package className="w-16 h-16 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-2 left-2 space-y-1">
-                      {product.is_featured && (
-                        <Badge className="bg-orange-500 text-white text-xs px-2 py-1">
-                          <Star className="w-2 h-2 mr-1" />
-                          Featured
-                        </Badge>
-                      )}
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <Badge className="bg-orange-600 text-white text-xs px-2 py-1">
-                          -{Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)}%
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Brand Badge */}
-                    <div className="absolute top-2 right-2">
-                      <Badge 
-                        className="text-xs px-2 py-1"
-                        style={{ backgroundColor: product.brands?.primary_color || '#F97316' }}
-                      >
-                        {product.brands?.name || 'Unknown Brand'}
-                      </Badge>
-                    </div>
-
-                    {/* Quick Add Button */}
-                    <div className="absolute bottom-2 right-2">
-                      {product.inventory_quantity > 0 ? (
-                        <Button 
-                          size="sm" 
-                          className="w-8 h-8 p-0 bg-white/90 hover:bg-white rounded-full shadow-md"
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            try {
-                              await addItem({
-                                id: product.id,
-                                title: product.title,
-                                slug: product.slug,
-                                price: product.price,
-                                featured_image: product.featured_image,
-                                sku: product.sku || '',
-                                inventory_quantity: product.inventory_quantity,
-                                track_inventory: true
-                              })
-                              toast.success(`${product.title} added to cart!`)
-                            } catch (error) {
-                              toast.error('Failed to add item to cart')
-                            }
-                          }}
-                        >
-                          <Plus className="w-4 h-4 text-orange-500" />
-                        </Button>
-                      ) : (
-                        <Badge className="bg-red-500 text-white text-xs px-2 py-1 shadow-md">
-                          Out of Stock
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-3">
-                    <h3 className="font-medium text-gray-800 mb-1 line-clamp-2 text-sm">
-                      {product.title}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-800">
-                        ₦{product.price?.toLocaleString()}
-                      </span>
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <span className="text-xs text-gray-500 line-through">
-                          ₦{product.compare_at_price?.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                product={product}
+                onClick={handleProductClick}
+                formatPrice={formatPrice}
+                index={index}
+                showSizes={false}
+              />
             ))}
           </motion.div>
         )}
@@ -1193,7 +1105,7 @@ function FooterFrame() {
             <div className="space-y-4 mb-8">
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-700">hello@favoritethings.ng</span>
+                <span className="text-gray-700">favoritethings@gmail.com</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-gray-600" />
@@ -1221,20 +1133,10 @@ function FooterFrame() {
             className="text-center"
           >
             <div className="bg-white rounded-2xl shadow-2xl p-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Newsletter</h3>
-              <p className="text-gray-600 mb-6">
-                Subscribe to get updates on new collections and exclusive offers.
-              </p>
-              <div className="flex space-x-2">
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-                <Button className="bg-yellow-400 text-black hover:bg-yellow-500 px-6 py-3 rounded-full">
-                  Subscribe
-                </Button>
-              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">Visit Us</h3>
+              <p className="text-gray-600 mb-3">Block A Flat 3, 1 Kumasi Crescent</p>
+              <p className="text-gray-600 mb-6">Wuse 2, Abuja</p>
+              <a href="https://maps.google.com/?geocode=FUs_igAdJflwAA%3D%3D;FZCYigAdbBhyACkpjdXf9gpOEDFYqzyHL1RfgQ%3D%3D&daddr=1+Kumasi+Crescent,+Abuja&saddr=9.0601709,7.4038126&dirflg=dht&ftid=0x104e0af6dfd58d29:0x815f542f873cab58&lucs=,94259549,94284481,94224825,94227247,94227248,94231188,47071704,47069508,94218641,94282134,94203019,47084304,94286863&g_ep=CAISEjI1LjM1LjAuNzk5MDg4MzU1MBgAILq3Cyp1LDk0MjU5NTQ5LDk0Mjg0NDgxLDk0MjI0ODI1LDk0MjI3MjQ3LDk0MjI3MjQ4LDk0MjMxMTg4LDQ3MDcxNzA0LDQ3MDY5NTA4LDk0MjE4NjQxLDk0MjgyMTM0LDk0MjAzMDE5LDQ3MDg0MzA0LDk0Mjg2ODYzQgJORw%3D%3D&skid=373c3d47-a18c-4b52-8a61-52e87e303478&g_st=ic&g_st=ic\" target="_blank" rel="noopener noreferrer" className="text-yellow-600 hover:underline">Open in Google Maps</a>
             </div>
           </motion.div>
         </div>
@@ -1245,196 +1147,75 @@ function FooterFrame() {
 
 export default function EnhancedHomePage() {
   const { addItem } = useCartStore()
-  const [currentFrame, setCurrentFrame] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const [hasInteracted, setHasInteracted] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [currentSection, setCurrentSection] = useState(0)
+  // Removed modal state since we now navigate to individual product pages
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([])
 
-  const navigateToFrame = (index: number) => {
-    if (isTransitioning) return
-    setHasInteracted(true)
-    setIsTransitioning(true)
-    setCurrentFrame(index)
-    
-    // Scroll to top when changing frames
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
+  const navigateToSection = (index: number) => {
+    const section = sectionRefs.current[index]
+    if (section) {
+      section.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }
+  }
+
+  // Removed modal handlers since we now navigate to individual product pages
+
+  // Intersection Observer to update current section
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '-50% 0px -50% 0px',
+      threshold: 0
+    }
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const index = sectionRefs.current.findIndex(ref => ref === entry.target)
+          if (index !== -1) {
+            setCurrentSection(index)
+          }
+        }
+      })
+    }
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions)
+
+    sectionRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref)
     })
-    
-    setTimeout(() => setIsTransitioning(false), 500)
-  }
 
-  const nextFrame = () => {
-    if (currentFrame < frames.length - 1) {
-      setHasInteracted(true)
-      navigateToFrame(currentFrame + 1)
+    return () => {
+      observer.disconnect()
     }
-  }
-
-  const prevFrame = () => {
-    if (currentFrame > 0) {
-      setHasInteracted(true)
-      navigateToFrame(currentFrame - 1)
-    }
-  }
-
-  const handleSwipe = (event: any, info: PanInfo) => {
-    // More sensitive swipe detection for better mobile UX
-    if (Math.abs(info.offset.y) > 50) {
-      setHasInteracted(true)
-      if (info.offset.y > 0) {
-        prevFrame()
-      } else {
-        nextFrame()
-      }
-    }
-  }
-
-  const handleProductClick = (product: any) => {
-    setSelectedProduct(product)
-    setIsModalOpen(true)
-  }
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false)
-    setSelectedProduct(null)
-  }
-
-  const renderCurrentFrame = () => {
-    switch (currentFrame) {
-      case 0:
-        return <WelcomeFrame />
-      case 1:
-        return <KiowaFrame />
-      case 2:
-        return <OmegeFrame />
-      case 3:
-        return <MiniMeFrame />
-      case 4:
-        return <OthersFrame />
-      case 5:
-        return <ShopAllFrame />
-      case 6:
-        return <FooterFrame />
-      default:
-        return <WelcomeFrame />
-    }
-  }
+  }, [])
 
   return (
     <div className="relative">
-      <FixedIdentityPanel currentFrame={currentFrame} onNavigate={navigateToFrame} onPrev={prevFrame} onNext={nextFrame} />
-      
-      {/* Navigation Arrows */}
-      <div className="hidden lg:block fixed right-8 top-1/2 transform -translate-y-1/2 z-40 space-y-4">
-        <motion.div
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Button
-            onClick={prevFrame}
-            disabled={currentFrame === 0}
-            className="bg-white/80 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
-          >
-            <ChevronUp className="w-6 h-6" />
-          </Button>
-        </motion.div>
-        <motion.div
-          animate={{ y: [0, 5, 0] }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Button
-            onClick={nextFrame}
-            disabled={currentFrame === frames.length - 1}
-            className="bg-white/80 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-50"
-          >
-            <ChevronDown className="w-6 h-6" />
-          </Button>
-        </motion.div>
-      </div>
+      <FixedNavigationPanel currentSection={currentSection} onNavigate={navigateToSection} />
 
-      {/* Mobile Navigation Arrows */}
-      <div className="lg:hidden fixed bottom-20 right-4 z-20 flex flex-col space-y-2">
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0, y: [0, -3, 0] }}
-          transition={{ delay: 0.5, y: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } }}
-        >
-          <Button
-            onClick={prevFrame}
-            disabled={currentFrame === 0}
-            className="bg-white/90 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronUp className="w-5 h-5" />
-          </Button>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0, y: [0, 3, 0] }}
-          transition={{ delay: 0.6, y: { duration: 1.5, repeat: Infinity, ease: "easeInOut" } }}
-        >
-          <Button
-            onClick={nextFrame}
-            disabled={currentFrame === frames.length - 1}
-            className="bg-white/90 backdrop-blur-sm text-orange-500 hover:text-orange-600 hover:bg-white p-3 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronDown className="w-5 h-5" />
-          </Button>
-        </motion.div>
-      </div>
-
-      {/* Mobile Navigation Dots with Swipe Indicator */}
+      {/* Mobile Navigation Dots */}
       <div className="lg:hidden fixed bottom-4 left-1/2 transform -translate-x-1/2 z-20">
         <div className="bg-white/95 backdrop-blur-md rounded-full px-4 py-3 shadow-2xl border border-gray-200/50">
           <div className="flex items-center justify-center space-x-3">
-            {/* Swipe Indicator - Hide after user interaction */}
-            {!hasInteracted && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ 
-                  opacity: [0.6, 1, 0.6], 
-                  scale: [1, 1.1, 1],
-                  y: [0, -2, 0]
-                }}
-                transition={{ 
-                  duration: 2, 
-                  repeat: Infinity, 
-                  ease: "easeInOut"
-                }}
-                className="flex items-center space-x-1 text-xs text-gray-600 mr-2 bg-yellow-100 px-2 py-1 rounded-full"
-              >
-                <motion.div
-                  animate={{ y: [0, -2, 0] }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <ChevronUp className="w-3 h-3 text-orange-500" />
-                </motion.div>
-                <span className="text-[10px] font-bold whitespace-nowrap text-gray-700">Swipe</span>
-                <motion.div
-                  animate={{ y: [0, 2, 0] }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="w-3 h-3 text-orange-500" />
-                </motion.div>
-              </motion.div>
-            )}
-            
             {/* Dots */}
             <div className="flex items-center space-x-2">
-              {frames.map((frame, index) => (
-                <motion.button
-                  key={frame.id}
-                  onClick={() => navigateToFrame(index)}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 touch-manipulation ${
-                    currentFrame === index
-                      ? "bg-yellow-400 scale-110 shadow-sm"
-                      : "bg-gray-300 hover:bg-gray-400 active:bg-gray-500"
-                  }`}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                />
+              {sections.map((section, index) => (
+                                  <motion.button
+                    key={section.id}
+                    onClick={() => navigateToSection(index)}
+                    className={`w-3 h-3 rounded-full transition-all duration-300 touch-manipulation ${
+                      currentSection === index
+                        ? "scale-110 shadow-sm"
+                        : "bg-gray-300 hover:bg-gray-400 active:bg-gray-500"
+                    }`}
+                    style={currentSection === index ? {backgroundColor: '#FFC107'} : {}}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                  />
               ))}
             </div>
             
@@ -1447,21 +1228,64 @@ export default function EnhancedHomePage() {
         </div>
       </div>
 
-      {/* Main Content */}
-      <motion.div
-        key={currentFrame}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
-        drag="y"
-        dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={0.1}
-        onDragEnd={handleSwipe}
-        className="w-full cursor-grab active:cursor-grabbing"
-      >
-        {renderCurrentFrame()}
-      </motion.div>
+      {/* Main Content - All sections stacked vertically */}
+      <div className="w-full">
+        {/* Welcome Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[0] = el }}
+          className="min-h-screen"
+        >
+          <WelcomeFrame />
+        </div>
+
+        {/* Kiowa Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[1] = el }}
+          className="min-h-screen"
+        >
+          <KiowaFrame />
+        </div>
+
+        {/* Omege Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[2] = el }}
+          className="min-h-screen"
+        >
+          <OmegeFrame />
+        </div>
+
+        {/* MiniMe Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[3] = el }}
+          className="min-h-screen"
+        >
+          <MiniMeFrame />
+        </div>
+
+        {/* Others Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[4] = el }}
+          className="min-h-screen"
+        >
+          <OthersFrame />
+        </div>
+
+        {/* Shop All Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[5] = el }}
+          className="min-h-screen"
+        >
+          <ShopAllFrame />
+        </div>
+
+        {/* Footer Section */}
+        <div 
+          ref={(el) => { sectionRefs.current[6] = el }}
+          className="min-h-screen"
+        >
+          <FooterFrame />
+        </div>
+      </div>
 
       {/* Discount Popup */}
       <DiscountPopup />
@@ -1471,14 +1295,7 @@ export default function EnhancedHomePage() {
         <AuthButtons />
       </div>
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        brandColor={selectedProduct?.brands?.primary_color || '#F97316'}
-        brandName={selectedProduct?.brands?.name || 'Unknown Brand'}
-      />
+      {/* Product Detail Modal - Removed since we now navigate to individual pages */}
     </div>
   )
 }

@@ -162,26 +162,27 @@ export default function BrandsPage() {
           transition={{ duration: 0.8 }}
           className="mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl shadow-lg"
                 >
-                  <Store className="w-8 h-8 text-white" />
+                  <Store className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">Brand Management</h1>
-                  <p className="text-gray-600 text-lg">Manage your multi-brand structure</p>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">Brand Management</h1>
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">Manage your multi-brand structure</p>
                 </div>
               </div>
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
               >
                 <Link href="/admin/brands/new">
-                  <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium">
+                  <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-4 sm:px-6 py-3 rounded-xl hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium w-full sm:w-auto justify-center">
                     <Plus className="w-4 h-4" />
                     Add Brand
                   </Button>
@@ -306,7 +307,7 @@ export default function BrandsPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"
         >
           {filteredBrands.map((brand, index) => (
             <motion.div

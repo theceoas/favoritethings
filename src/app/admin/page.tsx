@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import DashboardStats from '@/components/admin/DashboardStats'
 import RecentOrders from '@/components/admin/RecentOrders'
 import LowStockProducts from '@/components/admin/LowStockProducts'
@@ -35,6 +36,7 @@ interface DashboardData {
 }
 
 export default function AdminDashboard() {
+  const router = useRouter()
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     totalProducts: 0,
     totalOrders: 0,
@@ -49,14 +51,18 @@ export default function AdminDashboard() {
     const fetchDashboardData = async () => {
       const supabase = createClient()
       
+      if (!supabase) {
+        setIsLoading(false)
+        return
+      }
+      
       try {
-        const [
-          { count: totalProducts },
-          { count: totalOrders },
-          { count: totalCustomers },
-          { data: recentOrders },
-          { data: lowStockProducts }
-        ] = await Promise.all([
+        // Start with a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 10000) // 10 second timeout
+        })
+        
+        const dataPromise = Promise.all([
           supabase.from('products').select('*', { count: 'exact', head: true }),
           supabase.from('orders').select('*', { count: 'exact', head: true }),
           supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'customer'),
@@ -74,6 +80,14 @@ export default function AdminDashboard() {
             .limit(10)
         ])
 
+        const [
+          { count: totalProducts },
+          { count: totalOrders },
+          { count: totalCustomers },
+          { data: recentOrders },
+          { data: lowStockProducts }
+        ] = await Promise.race([dataPromise, timeoutPromise]) as any
+
         setDashboardData({
           totalProducts: totalProducts || 0,
           totalOrders: totalOrders || 0,
@@ -83,6 +97,14 @@ export default function AdminDashboard() {
         })
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
+        // Set default data on error
+        setDashboardData({
+          totalProducts: 0,
+          totalOrders: 0,
+          totalCustomers: 0,
+          recentOrders: [],
+          lowStockProducts: []
+        })
       } finally {
         setIsLoading(false)
       }
@@ -127,8 +149,7 @@ export default function AdminDashboard() {
       const result = await response.json()
       console.log('Clear notifications result:', result)
       alert('All notifications cleared!')
-      // Refresh the page to update the count
-      window.location.reload()
+      // The real-time subscription should handle the update automatically
     } catch (error) {
       console.error('Error clearing notifications:', error)
       alert('Error clearing notifications')
@@ -141,7 +162,7 @@ export default function AdminDashboard() {
       description: "Create a new product listing",
       icon: Plus,
       color: "from-blue-500 to-indigo-600",
-      href: "/admin/products/new"
+      href: "/admin/products"
     },
     {
       title: "View Orders",
@@ -158,11 +179,11 @@ export default function AdminDashboard() {
       href: "/admin/inventory"
     },
     {
-      title: "Analytics",
-      description: "View business insights",
+      title: "Manage Brands",
+      description: "Edit brand settings",
       icon: TrendingUp,
       color: "from-purple-500 to-pink-600",
-      href: "/admin/analytics"
+      href: "/admin/brands"
     }
   ]
 
@@ -239,7 +260,7 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="container mx-auto px-6 py-8 relative z-10">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 relative z-10">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
@@ -247,31 +268,31 @@ export default function AdminDashboard() {
           transition={{ duration: 0.8 }}
           className="mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl shadow-lg"
                 >
-                  <BarChart3 className="w-8 h-8 text-white" />
+                  <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">
                     Admin Dashboard
                   </h1>
-                  <p className="text-gray-600 text-lg">
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">
                     Manage your fashion empire with style
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <Badge className="bg-green-100 text-green-800 px-4 py-2">
-                  <Activity className="w-4 h-4 mr-2" />
+              <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+                <Badge className="bg-green-100 text-green-800 px-3 sm:px-4 py-2">
+                  <Activity className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Live
                 </Badge>
-                <Button className="bg-yellow-400 text-black hover:bg-yellow-500">
-                  <Settings className="w-4 h-4 mr-2" />
+                <Button className="bg-yellow-400 text-black hover:bg-yellow-500 flex-1 sm:flex-none">
+                  <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Settings
                 </Button>
               </div>
@@ -337,29 +358,29 @@ export default function AdminDashboard() {
           transition={{ duration: 0.8, delay: 0.5 }}
           className="mb-8"
         >
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-gray-200/50">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-4 sm:p-6 shadow-2xl border border-gray-200/50">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h2 className="text-xl font-bold text-gray-800">Notification System Test</h2>
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800">Notification System Test</h2>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <Button
                 onClick={testNotification}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                className="bg-blue-500 hover:bg-blue-600 text-white text-sm sm:text-base"
               >
                 Create Test Notification
               </Button>
               <Button
                 onClick={checkNotificationStatus}
                 variant="outline"
-                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 text-sm sm:text-base"
               >
                 Check Notification Status
               </Button>
               <Button
                 onClick={clearAllNotifications}
                 variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-50"
+                className="border-red-300 text-red-700 hover:bg-red-50 text-sm sm:text-base"
               >
                 Clear All Notifications
               </Button>
@@ -374,12 +395,12 @@ export default function AdminDashboard() {
           transition={{ duration: 0.8, delay: 0.6 }}
           className="mb-8"
         >
-          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex items-center gap-3 mb-6">
-              <Zap className="w-6 h-6 text-yellow-500" />
-              <h2 className="text-2xl font-bold text-gray-800">Quick Actions</h2>
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex items-center gap-3 mb-4 sm:mb-6">
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">Quick Actions</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {quickActions.map((action, index) => (
                 <motion.div
                   key={action.title}
@@ -388,7 +409,20 @@ export default function AdminDashboard() {
                   transition={{ duration: 0.6, delay: 0.8 + index * 0.1 }}
                   whileHover={{ y: -5, scale: 1.02 }}
                 >
-                  <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                  <Card 
+                    className="overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                    onClick={() => {
+                      // Add loading feedback
+                      const card = document.activeElement as HTMLElement
+                      if (card) {
+                        card.style.opacity = '0.7'
+                        setTimeout(() => {
+                          if (card) card.style.opacity = '1'
+                        }, 200)
+                      }
+                      router.push(action.href)
+                    }}
+                  >
                     <div className={`h-2 bg-gradient-to-r ${action.color}`} />
                     <CardContent className="p-6">
                       <div className="flex items-center gap-4">

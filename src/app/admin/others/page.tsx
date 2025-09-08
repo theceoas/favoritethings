@@ -364,26 +364,26 @@ export default function AdminOthersPage() {
         />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         {/* Header Section */}
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-6">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-2xl border border-gray-200/50">
+            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-6">
                 <motion.div
                   whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="p-4 bg-gradient-to-br from-purple-400 to-pink-500 rounded-2xl shadow-lg"
+                  className="p-3 sm:p-4 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl sm:rounded-2xl shadow-lg"
                 >
-                  <Package className="w-8 h-8 text-white" />
+                  <Package className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </motion.div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-800 mb-2">Others Management</h1>
-                  <p className="text-gray-600 text-lg">Manage snacks, accessories, and other items</p>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-1 sm:mb-2">Others Management</h1>
+                  <p className="text-gray-600 text-sm sm:text-base lg:text-lg">Manage snacks, accessories, and other items</p>
                 </div>
               </div>
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -396,8 +396,9 @@ export default function AdminOthersPage() {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
+                    className="w-full lg:w-auto"
                   >
-                    <Button className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium">
+                    <Button className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 flex items-center gap-2 shadow-lg font-medium w-full lg:w-auto justify-center">
                       <Plus className="w-4 h-4" />
                       Add Item
                     </Button>
@@ -541,25 +542,30 @@ export default function AdminOthersPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="mb-8"
+          className="mb-6 sm:mb-8"
         >
-          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-1 gap-4">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <div className="bg-white/90 backdrop-blur-md rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-xl border border-gray-200/50">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              {/* Search Bar */}
+              <div className="w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                   <input
                     type="text"
                     placeholder="Search items..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                    className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                   />
                 </div>
+              </div>
+              
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="all">All Categories</option>
                   <option value="snacks">Snacks</option>
@@ -568,7 +574,7 @@ export default function AdminOthersPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white/50 backdrop-blur-sm text-sm sm:text-base"
                 >
                   <option value="all">All Status</option>
                   <option value="active">Active</option>
@@ -579,100 +585,108 @@ export default function AdminOthersPage() {
           </div>
         </motion.div>
 
-        {/* Items Table */}
+        {/* Items Cards - Mobile Friendly */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4 }}
-          className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden"
+          className="space-y-4 sm:space-y-6"
         >
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Image</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Stock</TableHead>
-                  <TableHead>Barcode</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOthers.map((item) => {
-                  const stockStatus = getStockStatus(item.inventory_quantity, item.low_stock_threshold, item.track_inventory)
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>
+          {filteredOthers.map((item, index) => {
+            const stockStatus = getStockStatus(item.inventory_quantity, item.low_stock_threshold, item.track_inventory)
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, delay: 0.8 + index * 0.05 }}
+              >
+                <Card className="bg-white/90 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-200/50">
+                  <CardContent className="p-4 sm:p-6">
+                    {/* Header with Image and Basic Info */}
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="flex-shrink-0">
                         {item.image_url ? (
                           <img 
                             src={item.image_url} 
                             alt={item.name}
-                            className="w-12 h-12 object-cover rounded-lg"
+                            className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg shadow-md"
                           />
                         ) : (
-                          <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <Package className="w-6 h-6 text-gray-400" />
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-lg flex items-center justify-center shadow-md">
+                            <Package className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
                           </div>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-gray-500">{item.description}</div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 truncate">{item.name}</h3>
+                            <p className="text-sm text-gray-600 line-clamp-2">{item.description}</p>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Badge className={item.category === 'snacks' ? 'bg-orange-100 text-orange-800' : 'bg-purple-100 text-purple-800'}>
+                              {item.category}
+                            </Badge>
+                            <Badge className={item.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                              {item.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={item.category === 'snacks' ? 'bg-orange-100 text-orange-800' : 'bg-purple-100 text-purple-800'}>
-                          {item.category}
+                      </div>
+                    </div>
+
+                    {/* Item Stats Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                      <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-800">₦{item.price?.toLocaleString()}</div>
+                        <div className="text-xs text-gray-600">Price</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50/50 rounded-lg">
+                        <div className="text-lg font-bold text-gray-800">{item.inventory_quantity}</div>
+                        <div className="text-xs text-gray-600">Stock</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50/50 rounded-lg col-span-2 sm:col-span-1">
+                        <Badge className={`${stockStatus.bg} ${stockStatus.color} text-xs`}>
+                          {stockStatus.text}
                         </Badge>
-                      </TableCell>
-                      <TableCell>₦{item.price?.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{item.inventory_quantity}</span>
-                          <Badge className={`${stockStatus.bg} ${stockStatus.color}`}>
-                            {stockStatus.text}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-600 font-mono">
+                        <div className="text-xs text-gray-600 mt-1">Status</div>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50/50 rounded-lg col-span-2 sm:col-span-1">
+                        <div className="text-sm font-mono text-gray-800 truncate">
                           {item.barcode || 'N/A'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={item.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {item.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            onClick={() => handleEdit(item)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            <PencilIcon className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteItem(item.id)}
-                            size="sm"
-                            variant="outline"
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                        <div className="text-xs text-gray-600">Barcode</div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-200">
+                      <Button
+                        onClick={() => handleEdit(item)}
+                        size="sm"
+                        variant="outline"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      >
+                        <PencilIcon className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteItem(item.id)}
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <TrashIcon className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )
+          })}
         </motion.div>
       </div>
     </div>

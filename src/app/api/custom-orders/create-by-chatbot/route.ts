@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       order_code: order_code,
-      upload_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://bedznbuttunz.com'}/custom-order-upload`,
+      upload_url: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://favoritethings.ng'}/custom-order-upload`,
       message: 'Custom order created. Share the code and link with the customer.'
     })
   } catch (err) {

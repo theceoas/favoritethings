@@ -8,13 +8,14 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
     
-    // Mark all notifications as read
+    // Mark all unread notifications as read
     const { error } = await supabase
       .from('admin_notifications')
       .update({
         is_read: true,
         read_at: new Date().toISOString()
       })
+      .eq('is_read', false)
 
     if (error) {
       return NextResponse.json({ 

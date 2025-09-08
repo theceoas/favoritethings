@@ -70,8 +70,8 @@ export default function CollectionForm({ collection, isEditing = false }: Collec
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      alert('Image size must be less than 5MB')
+          if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert('Image size must be less than 10MB')
       return
     }
 
@@ -355,7 +355,7 @@ export default function CollectionForm({ collection, isEditing = false }: Collec
                       <div className="text-[#4F4032] mb-2">
                         <span className="font-medium">Click to upload</span> or drag and drop
                       </div>
-                      <p className="text-sm text-[#4F4032]/60">PNG, JPG, WEBP up to 5MB</p>
+                      <p className="text-sm text-[#4F4032]/60">PNG, JPG, WEBP up to 10MB</p>
                       <p className="text-xs text-[#4F4032]/40 mt-2">✨ Images will open in editor for cropping & resizing</p>
                     </div>
                   )}

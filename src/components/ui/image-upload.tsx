@@ -47,9 +47,9 @@ export function ImageUpload({
       return
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB')
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size must be less than 10MB')
       return
     }
 
@@ -179,7 +179,7 @@ export function ImageUpload({
                       Click to upload or drag and drop
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      PNG, JPG, GIF up to 5MB
+                      PNG, JPG, GIF up to 10MB
                     </p>
                   </div>
                 </div>
