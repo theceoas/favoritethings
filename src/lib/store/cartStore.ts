@@ -1,7 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createClient } from '@/lib/supabase/client'
 import { logger } from '../utils/logger'
 
 interface ProductVariant {
@@ -41,6 +41,9 @@ interface CartItem {
 interface CartStore {
   items: CartItem[]
   isOpen: boolean
+  isLoading: boolean
+  cartId: string | null
+  sessionId: string | null
   addItem: (product: {
     id: string
     title: string
@@ -51,160 +54,281 @@ interface CartStore {
     inventory_quantity: number
     track_inventory: boolean
   }, variant?: ProductVariant, quantity?: number) => Promise<void>
-  updateQuantity: (itemId: string, quantity: number) => void
-  removeItem: (itemId: string) => void
-  clearCart: () => void
+  updateQuantity: (itemId: string, quantity: number) => Promise<void>
+  removeItem: (itemId: string) => Promise<void>
+  clearCart: () => Promise<void>
   openCart: () => void
   closeCart: () => void
   getTotalItems: () => number
   getSubtotal: () => number
   getTaxAmount: () => number
   refreshInventory: () => Promise<{ removedItems: any[], quantityChanges: any[], totalItems: number } | undefined>
+  loadCart: () => Promise<void>
+  syncCart: () => Promise<void>
 }
 
-export const useCartStore = create<CartStore>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      isOpen: false,
+// Generate session ID for anonymous users
+const generateSessionId = () => {
+  if (typeof window === 'undefined') return null
+  let sessionId = sessionStorage.getItem('cart-session-id')
+  if (!sessionId) {
+    sessionId = 'cart_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    sessionStorage.setItem('cart-session-id', sessionId)
+  }
+  return sessionId
+}
 
-      addItem: async (product, variant, quantity = 1) => {
-        try {
-          const currentItems = get().items
-          const cartItemId = variant ? `${product.id}-${variant.id}` : product.id
-          
-          // Check inventory before adding
-          const response = await fetch('/api/products/inventory/check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              product_id: product.id,
-              variant_id: variant?.id || null
-            })
-          })
+export const useCartStore = create<CartStore>()((set, get) => ({
+  items: [],
+  isOpen: false,
+  isLoading: false,
+  cartId: null,
+  sessionId: null,
 
-          if (!response.ok) {
-            let errorMessage = `Failed to check inventory (${response.status})`
-            try {
-              const errorData = await response.json()
-              errorMessage = errorData.error || errorData.details || errorMessage
-              console.error('API Error Details:', errorData)
-            } catch (jsonError) {
-              // If JSON parsing fails, get text response
-              try {
-                const errorText = await response.text()
-                console.error('API Error Text:', errorText)
-                errorMessage = errorText || errorMessage
-              } catch (textError) {
-                console.error('Could not parse error response:', textError)
-              }
-            }
-            throw new Error(errorMessage)
-          }
+  loadCart: async () => {
+    try {
+      set({ isLoading: true })
+      const supabase = createClient()
+      if (!supabase) {
+        logger.error('❌ Cart - Supabase client not available')
+        return
+      }
 
-          const stockData = await response.json()
-          
-          if (!stockData.is_active) {
-            throw new Error(`${stockData.title || 'Product'} is no longer available`)
-          }
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      // Generate session ID for anonymous users
+      const sessionId = user ? null : generateSessionId()
+      
+      set({ sessionId })
 
-          if (stockData.track_inventory && stockData.inventory_quantity === 0) {
-            throw new Error(`${stockData.title || 'Product'} is out of stock`)
-          }
-        
-          const existingItem = currentItems.find(item => item.id === cartItemId)
-        
-          if (existingItem) {
-            // Update quantity if item already exists
-            const newQuantity = existingItem.quantity + quantity
-            if (stockData.track_inventory && newQuantity > stockData.inventory_quantity) {
-              throw new Error(`Only ${stockData.inventory_quantity} of ${stockData.title || 'product'} available in stock`)
-            }
-          
-            set({
-              items: currentItems.map(item =>
-                item.id === cartItemId
-                  ? { 
-                      ...item, 
-                      quantity: newQuantity, 
-                      inventory_quantity: stockData.inventory_quantity,
-                      price: stockData.price || item.price,
-                      sku: stockData.sku || item.sku,
-                      variant_title: variant?.title || item.variant_title,
-                      size: variant?.size || item.size,
-                      color: variant?.color || item.color,
-                      material: variant?.material || item.material
-                    }
-                  : item
-              )
-            })
-          } else {
-            // Add new item
-            if (stockData.track_inventory && quantity > stockData.inventory_quantity) {
-              throw new Error(`Only ${stockData.inventory_quantity} of ${stockData.title || 'product'} available in stock`)
-            }
-          
-            const newItem: CartItem = {
-              id: cartItemId,
-              product_id: product.id,
-              variant_id: variant?.id,
-              title: stockData.title || product.title,
-              slug: product.slug,
-              price: stockData.price || product.price,
-              quantity,
-              featured_image: variant?.featured_image || variant?.image_url || product.featured_image,
-              sku: stockData.sku || product.sku,
-              inventory_quantity: stockData.inventory_quantity,
-              variant_title: variant?.title,
-              size: variant?.size,
-              color: variant?.color,
-              material: variant?.material
-            }
-          
-            set({
-              items: [...currentItems, newItem]
-            })
-          }
-        } catch (error) {
-          console.error('Error adding item to cart:', error)
-          throw error // Re-throw the error to be handled by the component
-        }
-      },
+      // Get or create cart
+      const { data: cart, error } = await supabase
+        .rpc('get_or_create_cart', {
+          p_user_id: user?.id || null,
+          p_session_id: sessionId
+        })
 
-      updateQuantity: (itemId, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(itemId)
+      if (error) {
+        logger.error('❌ Cart - Error getting cart:', error)
+        return
+      }
+
+      if (cart) {
+        // Get cart details
+        const { data: cartData, error: cartError } = await supabase
+          .from('carts')
+          .select('*')
+          .eq('id', cart)
+          .single()
+
+        if (cartError) {
+          logger.error('❌ Cart - Error fetching cart data:', cartError)
           return
         }
 
         set({
-          items: get().items.map(item =>
-            item.id === itemId
-              ? { ...item, quantity }
-              : item
-          )
+          cartId: cartData.id,
+          items: cartData.items || [],
+          isLoading: false
         })
-      },
+      }
+    } catch (error) {
+      logger.error('❌ Cart - Error loading cart:', error)
+      set({ isLoading: false })
+    }
+  },
 
-      removeItem: (itemId) => {
-        set({
-          items: get().items.filter(item => item.id !== itemId)
+  syncCart: async () => {
+    try {
+      const { cartId, items, sessionId } = get()
+      if (!cartId) return
+
+      const supabase = createClient()
+      if (!supabase) return
+
+      const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      const taxAmount = subtotal * 0.075 // 7.5% VAT
+      const total = subtotal + taxAmount
+
+      const { error } = await supabase
+        .from('carts')
+        .update({
+          items,
+          subtotal,
+          tax_amount: taxAmount,
+          total,
+          last_accessed_at: new Date().toISOString()
         })
-      },
+        .eq('id', cartId)
 
-      clearCart: () => {
-        set({ items: [] })
-      },
+      if (error) {
+        logger.error('❌ Cart - Error syncing cart:', error)
+      }
+    } catch (error) {
+      logger.error('❌ Cart - Error syncing cart:', error)
+    }
+  },
 
-      // Clean up invalid items from cart
-      cleanupCart: async () => {
-        const currentItems = get().items
-        logger.log('🧹 Cart - Cleaning up invalid items...')
+  addItem: async (product, variant, quantity = 1) => {
+    try {
+      set({ isLoading: true })
+      const currentItems = get().items
+      const cartItemId = variant ? `${product.id}-${variant.id}` : product.id
+      
+      // Check inventory before adding
+      const response = await fetch('/api/products/inventory/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: product.id,
+          variant_id: variant?.id || null
+        })
+      })
+
+      if (!response.ok) {
+        let errorMessage = `Failed to check inventory (${response.status})`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorData.details || errorMessage
+          console.error('API Error Details:', errorData)
+        } catch (jsonError) {
+          try {
+            const errorText = await response.text()
+            console.error('API Error Text:', errorText)
+            errorMessage = errorText || errorMessage
+          } catch (textError) {
+            console.error('Could not parse error response:', textError)
+          }
+        }
+        throw new Error(errorMessage)
+      }
+
+      const stockData = await response.json()
+      
+      if (!stockData.is_active) {
+        throw new Error(`${stockData.title || 'Product'} is no longer available`)
+      }
+
+      if (stockData.track_inventory && stockData.inventory_quantity === 0) {
+        throw new Error(`${stockData.title || 'Product'} is out of stock`)
+      }
+    
+      const existingItem = currentItems.find(item => item.id === cartItemId)
+    
+      if (existingItem) {
+        // Update existing item
+        if (stockData.track_inventory && (existingItem.quantity + quantity) > stockData.inventory_quantity) {
+          throw new Error(`Only ${stockData.inventory_quantity} of ${stockData.title || 'product'} available in stock`)
+        }
         
-        const validItems = []
-        const removedItems = []
+        const updatedItems = currentItems.map(item =>
+          item.id === cartItemId
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        )
         
-        for (const item of currentItems) {
+        set({ items: updatedItems })
+        await get().syncCart()
+      } else {
+        // Add new item
+        if (stockData.track_inventory && quantity > stockData.inventory_quantity) {
+          throw new Error(`Only ${stockData.inventory_quantity} of ${stockData.title || 'product'} available in stock`)
+        }
+      
+        const newItem: CartItem = {
+          id: cartItemId,
+          product_id: product.id,
+          variant_id: variant?.id,
+          title: stockData.title || product.title,
+          slug: product.slug,
+          price: stockData.price || product.price,
+          quantity,
+          featured_image: variant?.featured_image || variant?.image_url || product.featured_image,
+          sku: stockData.sku || product.sku,
+          inventory_quantity: stockData.inventory_quantity,
+          variant_title: variant?.title,
+          size: variant?.size,
+          color: variant?.color,
+          material: variant?.material
+        }
+      
+        set({ items: [...currentItems, newItem] })
+        await get().syncCart()
+      }
+    } catch (error) {
+      logger.error('❌ Cart - Error adding item:', error)
+      throw error
+    } finally {
+      set({ isLoading: false })
+    }
+  },
+
+  updateQuantity: async (itemId, quantity) => {
+    try {
+      if (quantity <= 0) {
+        await get().removeItem(itemId)
+        return
+      }
+
+      const currentItems = get().items
+      const updatedItems = currentItems.map(item =>
+        item.id === itemId
+          ? { ...item, quantity }
+          : item
+      )
+
+      set({ items: updatedItems })
+      await get().syncCart()
+    } catch (error) {
+      logger.error('❌ Cart - Error updating quantity:', error)
+    }
+  },
+
+  removeItem: async (itemId) => {
+    try {
+      const currentItems = get().items
+      const updatedItems = currentItems.filter(item => item.id !== itemId)
+      
+      set({ items: updatedItems })
+      await get().syncCart()
+    } catch (error) {
+      logger.error('❌ Cart - Error removing item:', error)
+    }
+  },
+
+  clearCart: async () => {
+    try {
+      set({ items: [] })
+      await get().syncCart()
+    } catch (error) {
+      logger.error('❌ Cart - Error clearing cart:', error)
+    }
+  },
+
+  openCart: () => set({ isOpen: true }),
+  closeCart: () => set({ isOpen: false }),
+
+  getTotalItems: () => {
+    return get().items.reduce((total, item) => total + item.quantity, 0)
+  },
+
+  getSubtotal: () => {
+    return get().items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  },
+
+  getTaxAmount: () => {
+    return get().getSubtotal() * 0.075 // 7.5% VAT
+  },
+
+  refreshInventory: async () => {
+    try {
+      const currentItems = get().items
+      const removedItems: any[] = []
+      const quantityChanges: any[] = []
+      
+      const updatedItems = await Promise.all(
+        currentItems.map(async (item) => {
           try {
             const response = await fetch('/api/products/inventory/check', {
               method: 'POST',
@@ -214,142 +338,55 @@ export const useCartStore = create<CartStore>()(
                 variant_id: item.variant_id || null
               })
             })
-            
-            if (response.ok) {
-              validItems.push(item)
-            } else {
-              removedItems.push(item)
-              logger.log(`🗑️ Removed invalid item: ${item.title}`)
+
+            if (!response.ok) {
+              logger.warn(`⚠️ Cart - Could not check inventory for ${item.title}`)
+              return item
             }
-          } catch (error) {
-            removedItems.push(item)
-            logger.log(`🗑️ Removed item due to error: ${item.title}`)
-          }
-        }
-        
-        set({ items: validItems })
-        logger.log(`✅ Cart cleanup complete. Removed ${removedItems.length} invalid items.`)
-        return { validItems, removedItems }
-      },
 
-      openCart: () => {
-        set({ isOpen: true })
-      },
-
-      closeCart: () => {
-        set({ isOpen: false })
-      },
-
-      getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0)
-      },
-
-      getSubtotal: () => {
-        return get().items.reduce((total, item) => total + (item.price * item.quantity), 0)
-      },
-
-      getTaxAmount: () => {
-        const subtotal = get().getSubtotal()
-        return subtotal * 0.075 // 7.5% VAT
-      },
-
-      refreshInventory: async () => {
-        const currentItems = get().items
-        if (currentItems.length === 0) return
-
-        logger.log('🔄 Cart - Refreshing inventory for cart items...')
-        
-        try {
-          const updatedItems = []
-          const removedItems = []
-          
-          for (const item of currentItems) {
-            // Use the unified inventory check endpoint
-            const response = await fetch('/api/products/inventory/check', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                product_id: item.product_id,
-                variant_id: item.variant_id || null
-              })
-            })
+            const stockData = await response.json()
             
-            if (response.ok) {
-              const stockData = await response.json()
-              
-              if (!stockData.is_active) {
-                removedItems.push({ 
-                  ...item, 
-                  reason: item.variant_id ? 'Product variant is no longer available' : 'Product is no longer available'
-                })
-              } else if (stockData.track_inventory && stockData.inventory_quantity === 0) {
-                removedItems.push({ 
-                  ...item, 
-                  reason: item.variant_id ? 'Product variant is out of stock' : 'Product is out of stock'
-                })
-              } else if (stockData.track_inventory && item.quantity > stockData.inventory_quantity) {
-                // Reduce quantity to available stock
-                updatedItems.push({
-                  ...item,
-                  quantity: stockData.inventory_quantity,
-                  inventory_quantity: stockData.inventory_quantity
-                })
-              } else {
-                // Update inventory quantity for display purposes
-                updatedItems.push({
-                  ...item,
-                  inventory_quantity: stockData.inventory_quantity
+            // Remove inactive items
+            if (!stockData.is_active) {
+              removedItems.push(item)
+              return null
+            }
+
+            // Update quantity if needed
+            if (stockData.track_inventory && item.quantity > stockData.inventory_quantity) {
+              const newQuantity = Math.max(0, stockData.inventory_quantity)
+              if (newQuantity !== item.quantity) {
+                quantityChanges.push({
+                  item,
+                  oldQuantity: item.quantity,
+                  newQuantity
                 })
               }
-            } else if (response.status === 404) {
-              // Item no longer exists in database - remove it
-              removedItems.push({ 
-                ...item, 
-                reason: item.variant_id ? 'Product variant no longer exists' : 'Product no longer exists'
-              })
-            } else {
-              logger.error('Failed to check inventory for item:', item.id, response.status)
-              // For other errors, keep the item but log the issue
-              updatedItems.push(item)
+              return { ...item, quantity: newQuantity }
             }
-          }
 
-          // Update the cart with refreshed items
-          set({ items: updatedItems })
+            return item
+          } catch (error) {
+            logger.warn(`⚠️ Cart - Error checking inventory for ${item.title}:`, error)
+            return item
+          }
+        })
+      )
 
-          // Log changes for user feedback
-          if (removedItems.length > 0) {
-            logger.log('🚫 Cart - Items removed due to availability:', removedItems.map(item => item.title))
-          }
-          
-          const quantityChanges = updatedItems.filter((item, index) => {
-            const originalItem = currentItems.find(orig => orig.id === item.id)
-            return originalItem && originalItem.quantity !== item.quantity
-          })
-          
-          if (quantityChanges.length > 0) {
-            logger.log('🔄 Cart - Item quantities adjusted:', quantityChanges.map(item => 
-              `${item.title}: adjusted to ${item.quantity}`
-            ))
-          }
+      const validItems = updatedItems.filter(item => item !== null) as CartItem[]
+      
+      set({ items: validItems })
+      await get().syncCart()
 
-          logger.log('✅ Cart - Inventory refresh completed')
-          
-          // Return summary for UI feedback
-          return {
-            removedItems,
-            quantityChanges,
-            totalItems: updatedItems.length
-          }
-          
-        } catch (error) {
-          logger.error('❌ Cart - Error refreshing inventory:', error)
-          throw new Error('Failed to refresh cart inventory')
-        }
+      return {
+        removedItems,
+        quantityChanges,
+        totalItems: validItems.length
       }
-    }),
-    {
-      name: 'cart-storage'
+      
+    } catch (error) {
+      logger.error('❌ Cart - Error refreshing inventory:', error)
+      throw new Error('Failed to refresh cart inventory')
     }
-  )
-) 
+  }
+}))

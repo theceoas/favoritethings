@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import Link from "next/link"
-import { DiscountPopup } from "@/components/discount-popup"
 import { AuthButtons } from "@/components/auth-buttons"
 import CartIcon from "@/components/CartIcon"
 import ProductSheet from "@/components/ProductSheet"
@@ -1287,8 +1286,6 @@ export default function EnhancedHomePage() {
         </div>
       </div>
 
-      {/* Discount Popup */}
-      <DiscountPopup />
       
       {/* Auth Buttons */}
       <div className="fixed top-4 right-4 z-50">

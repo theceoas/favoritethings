@@ -1,31 +1,47 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
   
-  const sessionId = searchParams.get('sessionId')
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    const sessionId = request.headers.get('x-session-id')
 
-  let query = supabase.from('carts').select('*')
+    if (!user && !sessionId) {
+      return NextResponse.json({ items: [], total: 0 })
+    }
 
-  if (user) {
-    query = query.eq('user_id', user.id)
-  } else if (sessionId) {
-    query = query.eq('session_id', sessionId)
-  } else {
-    return NextResponse.json({ error: 'Session ID required for guest users' }, { status: 400 })
+    // Get or create cart
+    const { data: cartId, error: cartError } = await supabase
+      .rpc('get_or_create_cart', {
+        p_user_id: user?.id || null,
+        p_session_id: sessionId
+      })
+
+    if (cartError) {
+      console.error('Error getting cart:', cartError)
+      return NextResponse.json({ items: [], total: 0 })
+    }
+
+    // Get cart details
+    const { data: cart, error } = await supabase
+      .from('carts')
+      .select('*')
+      .eq('id', cartId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching cart:', error)
+      return NextResponse.json({ items: [], total: 0 })
+    }
+
+    return NextResponse.json(cart || { items: [], total: 0 })
+  } catch (error) {
+    console.error('Error in cart GET:', error)
+    return NextResponse.json({ items: [], total: 0 })
   }
-
-  const { data: cart, error } = await query.single()
-
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json(cart || { items: [], total: 0 })
 }
 
 export async function POST(request: NextRequest) {
@@ -65,16 +81,27 @@ export async function POST(request: NextRequest) {
       variant = variantData
     }
 
-    // Find existing cart
-    let cartQuery = supabase.from('carts').select('*')
-    
-    if (user) {
-      cartQuery = cartQuery.eq('user_id', user.id)
-    } else {
-      cartQuery = cartQuery.eq('session_id', sessionId)
+    // Get or create cart
+    const { data: cartId, error: cartError } = await supabase
+      .rpc('get_or_create_cart', {
+        p_user_id: user?.id || null,
+        p_session_id: sessionId
+      })
+
+    if (cartError) {
+      return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
     }
 
-    const { data: existingCart } = await cartQuery.single()
+    // Get current cart
+    const { data: existingCart, error: fetchError } = await supabase
+      .from('carts')
+      .select('*')
+      .eq('id', cartId)
+      .single()
+
+    if (fetchError) {
+      return NextResponse.json({ error: 'Failed to fetch cart' }, { status: 500 })
+    }
 
     const cartItem = {
       id: uuidv4(),
@@ -90,8 +117,8 @@ export async function POST(request: NextRequest) {
 
     let updatedItems = []
     
-    if (existingCart) {
-      updatedItems = [...(existingCart.items || [])]
+    if (existingCart && existingCart.items) {
+      updatedItems = [...existingCart.items]
       const existingItemIndex = updatedItems.findIndex(
         item => item.product_id === productId && item.product_variant_id === variantId
       )
@@ -115,90 +142,86 @@ export async function POST(request: NextRequest) {
       items: updatedItems,
       subtotal,
       tax_amount: taxAmount,
-      total
+      total,
+      last_accessed_at: new Date().toISOString()
     }
 
-    if (existingCart) {
-      const { data: updatedCart, error } = await supabase
-        .from('carts')
-        .update(cartData)
-        .eq('id', existingCart.id)
-        .select()
-        .single()
+    const { data: updatedCart, error } = await supabase
+      .from('carts')
+      .update(cartData)
+      .eq('id', cartId)
+      .select()
+      .single()
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-
-      return NextResponse.json(updatedCart)
-    } else {
-      const { data: newCart, error } = await supabase
-        .from('carts')
-        .insert(cartData)
-        .select()
-        .single()
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-
-      return NextResponse.json(newCart)
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    return NextResponse.json(updatedCart)
   } catch (error) {
+    console.error('Error in cart POST:', error)
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 }
 
 export async function DELETE(request: NextRequest) {
   const supabase = await createClient()
-  const { searchParams } = new URL(request.url)
   
-  const itemId = searchParams.get('itemId')
-  const sessionId = searchParams.get('sessionId')
-  const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const { itemId, sessionId } = await request.json()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (!itemId) {
-    return NextResponse.json({ error: 'Item ID is required' }, { status: 400 })
+    if (!itemId) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 })
+    }
+
+    // Get or create cart
+    const { data: cartId, error: cartError } = await supabase
+      .rpc('get_or_create_cart', {
+        p_user_id: user?.id || null,
+        p_session_id: sessionId
+      })
+
+    if (cartError) {
+      return NextResponse.json({ error: 'Failed to get cart' }, { status: 500 })
+    }
+
+    // Get current cart
+    const { data: existingCart, error: fetchError } = await supabase
+      .from('carts')
+      .select('*')
+      .eq('id', cartId)
+      .single()
+
+    if (fetchError) {
+      return NextResponse.json({ error: 'Failed to fetch cart' }, { status: 500 })
+    }
+
+    const updatedItems = (existingCart.items || []).filter(item => item.id !== itemId)
+    const subtotal = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    const taxAmount = subtotal * 0.075 // 7.5% VAT
+    const total = subtotal + taxAmount
+
+    const { data: updatedCart, error } = await supabase
+      .from('carts')
+      .update({
+        items: updatedItems,
+        subtotal,
+        tax_amount: taxAmount,
+        total,
+        last_accessed_at: new Date().toISOString()
+      })
+      .eq('id', cartId)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(updatedCart)
+  } catch (error) {
+    console.error('Error in cart DELETE:', error)
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
-
-  // Find cart
-  let cartQuery = supabase.from('carts').select('*')
-  
-  if (user) {
-    cartQuery = cartQuery.eq('user_id', user.id)
-  } else if (sessionId) {
-    cartQuery = cartQuery.eq('session_id', sessionId)
-  } else {
-    return NextResponse.json({ error: 'Session ID required for guest users' }, { status: 400 })
-  }
-
-  const { data: cart } = await cartQuery.single()
-
-  if (!cart) {
-    return NextResponse.json({ error: 'Cart not found' }, { status: 404 })
-  }
-
-  const updatedItems = (cart.items || []).filter((item: any) => item.id !== itemId)
-  
-  const subtotal = updatedItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0)
-  const taxAmount = subtotal * 0.075
-  const total = subtotal + taxAmount
-
-  const { data: updatedCart, error } = await supabase
-    .from('carts')
-    .update({
-      items: updatedItems,
-      subtotal,
-      tax_amount: taxAmount,
-      total
-    })
-    .eq('id', cart.id)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json(updatedCart)
-} 
+}

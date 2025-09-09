@@ -9,7 +9,7 @@ export async function clearAllAuthData() {
     // Sign out from Supabase
     await supabase.auth.signOut()
     
-    // Clear localStorage items related to auth
+    // Clear database preferences related to auth
     if (typeof window !== 'undefined') {
       const authKeys = [
         'sb-access-token',
@@ -19,7 +19,7 @@ export async function clearAllAuthData() {
       ]
       
       authKeys.forEach(key => {
-        localStorage.removeItem(key)
+        // Database preferences will be cleared via API
         sessionStorage.removeItem(key)
       })
       

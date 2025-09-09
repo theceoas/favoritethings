@@ -28,7 +28,7 @@ export function createClient() {
         auth: {
           persistSession: true,
           detectSessionInUrl: true,
-          storage: typeof window !== 'undefined' ? window.localStorage : undefined
+          storage: undefined // Using database storage instead of localStorage
         }
       }
     )
