@@ -88,7 +88,13 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   loadCart: async () => {
     try {
       set({ isLoading: true })
-      const supabase = createClient()
+      
+      // Ensure cart is initialized
+      const { cartId } = get()
+      if (!cartId) {
+        await get().loadCart()
+      }
+            const supabase = createClient()
       if (!supabase) {
         logger.error('❌ Cart - Supabase client not available')
         return
@@ -173,7 +179,13 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   addItem: async (product, variant, quantity = 1) => {
     try {
       set({ isLoading: true })
-      const currentItems = get().items
+      
+      // Ensure cart is initialized
+      const { cartId } = get()
+      if (!cartId) {
+        await get().loadCart()
+      }
+            const currentItems = get().items
       const cartItemId = variant ? `${product.id}-${variant.id}` : product.id
       
       // Check inventory before adding

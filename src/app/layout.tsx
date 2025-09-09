@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lobster } from "next/font/google";
 import "./globals.css";
 import CartDrawer from "@/components/cart/CartDrawer";
+import CartInitializer from "@/components/CartInitializer";
 import { Toaster } from 'sonner';
 
 
@@ -40,6 +41,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} ${lobster.variable} font-[Outfit] antialiased text-gray-900`}>
         {children}
         <CartDrawer />
+        <CartInitializer />
         <Toaster 
           position="top-right"
           expand={true}
