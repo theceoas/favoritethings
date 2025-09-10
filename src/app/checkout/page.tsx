@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { useCartStore } from '@/lib/store/cartStore'
 import { supabase } from '@/lib/supabase/client'
 import { getProductImage } from '@/lib/utils/imageUtils'
-import { usePaystack } from '@/hooks/usePaystack'
+import { usePaystackFallback } from '@/hooks/usePaystackFallback'
 import { getStorePickupAddress, STORE_CONTACT_ADDRESS } from '@/lib/utils/storeAddress'
 import CartButton from '@/components/CartButton'
 import {
@@ -42,7 +42,7 @@ interface ShippingAddress {
 
 export default function CheckoutPage() {
   const { items, clearCart, getSubtotal, getTaxAmount, getTotalItems, removeItem } = useCartStore()
-  const { initializePayment } = usePaystack()
+  const { initializePayment, isScriptLoaded, scriptError } = usePaystackFallback()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -347,6 +347,17 @@ export default function CheckoutPage() {
     const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
     if (!publicKey) {
       setError('Paystack is not configured. Please check environment variables.')
+      return
+    }
+
+    // Check if Paystack script has loaded
+    if (scriptError) {
+      setError('Payment system is currently unavailable. Please refresh the page and try again.')
+      return
+    }
+
+    if (!isScriptLoaded) {
+      setError('Payment system is still loading. Please wait a moment and try again.')
       return
     }
 
@@ -1791,7 +1802,7 @@ export default function CheckoutPage() {
                 {/* Payment Button */}
                 <motion.button
                   onClick={handlePaystackPayment}
-                  disabled={loading || !isAddressComplete()}
+                  disabled={loading || !isAddressComplete() || !isScriptLoaded || scriptError !== null}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-semibold py-4 px-8 rounded-xl hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -1801,6 +1812,16 @@ export default function CheckoutPage() {
                       <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                       Processing...
                     </>
+                  ) : !isScriptLoaded ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      Loading Payment System...
+                    </>
+                  ) : scriptError ? (
+                    <>
+                      <AlertTriangle className="w-5 h-5" />
+                      Payment System Error
+                    </>
                   ) : (
                     <>
                       <CreditCard className="w-5 h-5" />
@@ -1809,13 +1830,32 @@ export default function CheckoutPage() {
                   )}
                 </motion.button>
 
+                {/* Payment Status Messages */}
+                {scriptError && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-5 h-5 text-red-500" />
+                      <p className="text-red-800">Payment system failed to load. Please refresh the page.</p>
+                    </div>
+                  </div>
+                )}
+                
+                {!isScriptLoaded && !scriptError && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-blue-800">Loading payment system...</p>
+                    </div>
+                  </div>
+                )}
+                
                 {error && (
                   <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
                     <div className="flex items-center space-x-2">
                       <AlertTriangle className="w-5 h-5 text-red-500" />
                       <p className="text-red-800">{error}</p>
-              </div>
-            </div>
+                    </div>
+                  </div>
                 )}
               </motion.div>
           </div>
@@ -1893,4 +1933,4 @@ export default function CheckoutPage() {
       </div>
     </div>
   )
-} 
+}

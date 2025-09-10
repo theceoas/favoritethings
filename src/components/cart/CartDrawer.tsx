@@ -21,11 +21,12 @@ export default function CartDrawer() {
     closeCart,
     updateQuantity,
     removeItem,
-    getTotalItems,
     getSubtotal,
     getTaxAmount,
     refreshInventory
   } = useCartStore()
+  
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
 
   const [mounted, setMounted] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -74,7 +75,7 @@ export default function CartDrawer() {
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-amber-200">
             <h2 className="text-2xl font-bold text-amber-800">
-              Shopping Cart ({getTotalItems()})
+              Shopping Cart ({totalItems})
             </h2>
             <div className="flex items-center gap-2">
               {items.length > 0 && (
@@ -243,4 +244,4 @@ export default function CartDrawer() {
       </div>
     </>
   )
-} 
+}

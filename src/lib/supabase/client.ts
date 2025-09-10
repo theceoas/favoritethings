@@ -21,6 +21,38 @@ export function createClient() {
   }
   
   try {
+    // Safari-compatible storage adapter
+    const safariCompatibleStorage = {
+      getItem: (key: string) => {
+        try {
+          return localStorage.getItem(key)
+        } catch (error) {
+          console.warn('localStorage not available, using memory storage')
+          return (window as any).__supabaseStorage?.[key] || null
+        }
+      },
+      setItem: (key: string, value: string) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch (error) {
+          console.warn('localStorage not available, using memory storage')
+          if (!(window as any).__supabaseStorage) {
+            (window as any).__supabaseStorage = {}
+          }
+          (window as any).__supabaseStorage[key] = value
+        }
+      },
+      removeItem: (key: string) => {
+        try {
+          localStorage.removeItem(key)
+        } catch (error) {
+          if ((window as any).__supabaseStorage) {
+            delete (window as any).__supabaseStorage[key]
+          }
+        }
+      }
+    }
+
     supabaseInstance = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -28,7 +60,7 @@ export function createClient() {
         auth: {
           persistSession: true,
           detectSessionInUrl: true,
-          storage: undefined // Using database storage instead of localStorage
+          storage: typeof window !== 'undefined' ? safariCompatibleStorage : undefined
         }
       }
     )
@@ -40,4 +72,4 @@ export function createClient() {
   return supabaseInstance
 }
 
-export const supabase = createClient() 
+export const supabase = createClient()

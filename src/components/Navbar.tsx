@@ -34,7 +34,8 @@ export default function Navbar() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
-  const { getTotalItems, openCart } = useCartStore()
+  const { items, openCart } = useCartStore()
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
 
   // Memoize the user check function to prevent recreating it on every render
   const checkUser = useCallback(async () => {
@@ -49,7 +50,7 @@ export default function Navbar() {
     checkUser()
 
     // Listen for auth changes and validate each time
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       // Clear validation cache on auth state change
       clearValidationCache()
       
@@ -222,9 +223,9 @@ export default function Navbar() {
               className="relative p-2 text-[#4F4032]/70 hover:text-[#6A41A1] hover:bg-[#6A41A1]/10 rounded-xl transition-all duration-300"
             >
               <ShoppingBagIcon className="h-6 w-6" />
-              {isMounted && getTotalItems() > 0 && (
+              {isMounted && totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 bg-gradient-to-r from-[#6A41A1] to-[#FFD84D] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium shadow-lg">
-                  {getTotalItems()}
+                  {totalItems}
                 </span>
               )}
             </button>
@@ -392,4 +393,4 @@ export default function Navbar() {
       )}
     </nav>
   )
-} 
+}

@@ -23,11 +23,12 @@ export default function CartPage() {
     updateQuantity,
     removeItem,
     clearCart,
-    getTotalItems,
     getSubtotal,
     getTaxAmount,
     refreshInventory
   } = useCartStore()
+  
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
 
   const [mounted, setMounted] = useState(false)
 
@@ -166,7 +167,7 @@ export default function CartPage() {
               transition={{ delay: 0.6, duration: 0.8 }}
               className="text-lg sm:text-xl text-amber-700 max-w-2xl mx-auto leading-relaxed"
             >
-              {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'items'} in your cart
+              {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart
             </motion.p>
           </motion.div>
 
@@ -233,7 +234,7 @@ export default function CartPage() {
                         <div className="flex-shrink-0">
                           <div className="w-20 h-28 rounded-xl flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
                             <img
-                              src={getProductImage(item.featured_image)}
+                              src={getProductImage(item.featured_image) || '/placeholder-image.jpg'}
                               alt={item.title}
                               className="max-w-full max-h-full w-auto h-auto"
                               style={{ objectFit: 'contain' }}
@@ -253,7 +254,7 @@ export default function CartPage() {
                         {/* Quantity Controls */}
                         <div className="flex items-center space-x-2">
                           <motion.button
-                            onClick={() => updateQuantity(item.product_id, item.variant_id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
                             disabled={item.quantity <= 1}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
@@ -267,7 +268,7 @@ export default function CartPage() {
                           </span>
                           
                           <motion.button
-                            onClick={() => updateQuantity(item.product_id, item.variant_id, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             className="w-8 h-8 bg-white border border-amber-300 rounded-lg flex items-center justify-center hover:bg-amber-50 transition-colors"
@@ -278,7 +279,7 @@ export default function CartPage() {
 
                         {/* Remove Button */}
                         <motion.button
-                          onClick={() => removeItem(item.product_id, item.variant_id)}
+                          onClick={() => removeItem(item.id)}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           className="text-red-500 hover:text-red-700 p-2"
@@ -336,4 +337,4 @@ export default function CartPage() {
       </div>
     </div>
   )
-} 
+}

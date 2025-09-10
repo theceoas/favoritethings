@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import ProductSheet from '@/components/ProductSheet'
 import ProductTileWithQuickAdd from '@/components/ProductTileWithQuickAdd'
-import { useCartStore } from '@/lib/store/cartStore'
+import { useSimpleCartStore } from '@/lib/store/simpleCartStore'
 import { toast } from 'sonner'
 import { 
   ArrowLeft,
@@ -21,20 +22,23 @@ import {
   Plus
 } from "lucide-react"
 
-interface Product {
+interface ProductData {
   id: string
   title: string
   slug: string
   description?: string
   featured_image?: string
+  images?: string[]
   price: number
   compare_at_price?: number
   is_featured: boolean
   is_active: boolean
   inventory_quantity: number
+  brand_id: string
   created_at: string
   updated_at: string
   sku?: string
+  track_inventory: boolean
   brands?: {
     name: string
     slug: string
@@ -43,18 +47,21 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const { addItem } = useCartStore()
-  const [products, setProducts] = useState<Product[]>([])
+  const router = useRouter()
+  const { addItem, loadFromStorage } = useSimpleCartStore()
+  const [products, setProducts] = useState<ProductData[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [brandFilter, setBrandFilter] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<ProductData | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     fetchProducts()
-  }, [])
+    // Load cart from storage when page loads
+    loadFromStorage()
+  }, [loadFromStorage])
 
   const fetchProducts = async () => {
     try {
@@ -92,28 +99,28 @@ export default function ProductsPage() {
     }
   }
 
-  const handleProductClick = (product: Product) => {
-    // Navigate to individual product page
-    window.location.href = `/products/${product.slug}`
+  const handleProductClick = (product: ProductData) => {
+    // Navigate to individual product page using Next.js router
+    router.push(`/products/${product.slug}`)
   }
 
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedProduct(null)
+    // Load cart from storage when sheet closes
+    loadFromStorage()
   }
 
-  const handleAddToCart = async (product: Product, e: React.MouseEvent) => {
+  const handleAddToCart = (product: ProductData, e: React.MouseEvent) => {
     e.stopPropagation()
     try {
-      await addItem({
+      addItem({
         id: product.id,
         title: product.title,
         slug: product.slug,
         price: product.price,
         featured_image: product.featured_image,
-        sku: product.sku || '',
-        inventory_quantity: product.inventory_quantity,
-        track_inventory: true
+        sku: product.sku || ''
       })
       toast.success(`${product.title} added to cart!`)
     } catch (error) {
@@ -263,8 +270,8 @@ export default function ProductsPage() {
             {filteredAndSortedProducts.map((product, index) => (
               <ProductTileWithQuickAdd
                 key={product.id}
-                product={product}
-                onClick={handleProductClick}
+                product={product as any}
+                onClick={(p: any) => handleProductClick(p)}
                 formatPrice={formatPrice}
                 index={index}
                 showSizes={true}
@@ -311,4 +318,4 @@ export default function ProductsPage() {
       />
     </div>
   )
-} 
+}

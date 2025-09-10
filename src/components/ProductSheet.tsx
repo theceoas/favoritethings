@@ -6,10 +6,10 @@ import { X, Heart, ShoppingBag, Star, Eye, Plus, Minus, Share2, ExternalLink, Ar
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { useCartStore } from '@/lib/store/cartStore'
-import { toast } from 'sonner'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { useSimpleCartStore } from '@/lib/store/simpleCartStore'
+import { toast } from 'sonner'
 
 interface Product {
   id: string
@@ -62,11 +62,10 @@ export default function ProductSheet({
 }: ProductSheetProps) {
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null)
   const [selectedSize, setSelectedSize] = useState<string>('')
-  const [quantity, setQuantity] = useState(1)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [isAddingToCart, setIsAddingToCart] = useState(false)
-  const { addItem } = useCartStore()
+  const [isAdding, setIsAdding] = useState(false)
   const router = useRouter()
+  const { addItem } = useSimpleCartStore()
 
   const formatPrice = (price: number | string | null | undefined) => {
     if (price === null || price === undefined) return 'Price not set'
@@ -84,34 +83,42 @@ export default function ProductSheet({
   const allImages = [product.featured_image, ...(product.images || [])].filter(Boolean)
   
   // Get available sizes (from variants or available_sizes)
-  const availableSizes = product.variants?.map(v => v.size).filter(Boolean) || product.available_sizes || []
-  const uniqueSizes = [...new Set(availableSizes)]
+  const availableSizes = product.variants?.map(v => v.size).filter((size): size is string => Boolean(size)) || product.available_sizes || []
+  const uniqueSizes = [...new Set(availableSizes)].filter((size): size is string => Boolean(size))
 
   // Get current price (from selected variant or base product)
   const currentPrice = selectedVariant?.price || product.price
   const currentComparePrice = selectedVariant?.compare_at_price || product.compare_at_price
 
-  const handleAddToCart = async () => {
-    if (!product) return
+  // Add to cart functionality using simplified approach like product cards
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isAdding || !product) return
     
-    // If sizes are available but none selected, show error
-    if (uniqueSizes.length > 0 && !selectedSize && !selectedVariant) {
-      toast.error('Please select a size')
-      return
-    }
-
-    setIsAddingToCart(true)
-    
+    setIsAdding(true)
     try {
-      await addItem(product, selectedVariant, quantity)
+      addItem({
+        id: product.id,
+        title: product.title,
+        slug: product.slug,
+        price: currentPrice,
+        featured_image: product.featured_image,
+        sku: selectedVariant?.sku || product.sku || ''
+      })
       toast.success(`${product.title} added to cart!`)
-      onClose()
     } catch (error) {
-      console.error('Error adding to cart:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to add to cart')
+      toast.error('Failed to add item to cart')
     } finally {
-      setIsAddingToCart(false)
+      setIsAdding(false)
     }
+  }
+
+  // Check if product is available
+  const isProductAvailable = () => {
+    if (selectedVariant) {
+      return selectedVariant.is_active && selectedVariant.inventory_quantity > 0
+    }
+    return product.is_active && product.inventory_quantity > 0
   }
 
   const handleSizeSelect = (size: string) => {
@@ -126,7 +133,6 @@ export default function ProductSheet({
     if (product) {
       setSelectedSize('')
       setSelectedVariant(null)
-      setQuantity(1)
       setCurrentImageIndex(0)
     }
   }, [product?.id])
@@ -169,7 +175,7 @@ export default function ProductSheet({
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      toast.success('Product link copied to clipboard!')
+      toast.success('Link copied to clipboard!')
     } catch (error) {
       toast.error('Failed to copy link')
     }
@@ -228,9 +234,9 @@ export default function ProductSheet({
           <div className="lg:w-1/2 bg-gray-50">
             {/* Main large image */}
             <div className="aspect-[3/4] relative bg-white">
-              {allImages.length > 0 ? (
+              {allImages.length > 0 && allImages[currentImageIndex] ? (
                 <Image
-                  src={allImages[currentImageIndex]}
+                  src={allImages[currentImageIndex]!}
                   alt={product.title}
                   fill
                   className="object-cover object-center"
@@ -272,7 +278,7 @@ export default function ProductSheet({
                     }`}
                   >
                     <Image
-                      src={image}
+                      src={image!}
                       alt={`${product.title} ${index + 2}`}
                       fill
                       className="object-cover object-center"
@@ -334,47 +340,25 @@ export default function ProductSheet({
                 </div>
               )}
 
-              {/* Quantity - Zara style */}
+              {/* Add to cart button - Safari-compatible + button approach */}
               <div className="mb-8">
-                <h3 className="text-sm font-normal text-black mb-3 uppercase tracking-wide">
-                  Quantity
-                </h3>
-                <div className="flex items-center border border-gray-300 w-fit">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={quantity <= 1}
-                    className="px-4 py-3 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                {isProductAvailable() ? (
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={isAdding}
+                    className="w-12 h-12 p-0 bg-white border-2 border-black hover:bg-black hover:text-white rounded-full transition-all duration-200 flex items-center justify-center"
                   >
-                    -
-                  </button>
-                  <span className="px-6 py-3 text-sm border-l border-r border-gray-300 min-w-[60px] text-center">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    disabled={quantity >= (selectedVariant?.inventory_quantity || product.inventory_quantity)}
-                    className="px-4 py-3 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Add to cart - Zara style button */}
-              <div className="mb-8">
-                <Button
-                  onClick={handleAddToCart}
-                  disabled={isAddingToCart || (selectedVariant?.inventory_quantity || product.inventory_quantity) === 0}
-                  className="w-full bg-black text-white hover:bg-gray-900 h-12 text-sm font-normal uppercase tracking-wide border-0 rounded-none"
-                >
-                  {isAddingToCart ? (
-                    'Adding...'
-                  ) : (selectedVariant?.inventory_quantity || product.inventory_quantity) === 0 ? (
-                    'Out of Stock'
-                  ) : (
-                    'Add to Bag'
-                  )}
-                </Button>
+                    {isAdding ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>
+                    ) : (
+                      <span className="text-xl font-bold">+</span>
+                    )}
+                  </Button>
+                ) : (
+                  <Badge className="bg-red-500 text-white text-sm px-4 py-2">
+                    Out of Stock
+                  </Badge>
+                )}
               </div>
 
               {/* Product details - minimal like Zara */}
@@ -415,4 +399,4 @@ export default function ProductSheet({
       </SheetContent>
     </Sheet>
   )
-} 
+}

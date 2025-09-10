@@ -11,8 +11,8 @@ interface CartButtonProps {
 }
 
 export default function CartButton({ className = '', size = 'md', variant = 'default' }: CartButtonProps) {
-  const { getTotalItems, openCart } = useCartStore()
-  const totalItems = getTotalItems()
+  const { items, openCart } = useCartStore()
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
 
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -50,4 +50,4 @@ export default function CartButton({ className = '', size = 'md', variant = 'def
       )}
     </motion.button>
   )
-} 
+}

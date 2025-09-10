@@ -10,8 +10,8 @@ interface CartIconProps {
 }
 
 export default function CartIcon({ className = '', size = 'md' }: CartIconProps) {
-  const { getTotalItems, openCart } = useCartStore()
-  const totalItems = getTotalItems()
+  const { items, openCart } = useCartStore()
+  const totalItems = items.reduce((total, item) => total + item.quantity, 0)
 
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -45,4 +45,4 @@ export default function CartIcon({ className = '', size = 'md' }: CartIconProps)
       )}
     </motion.button>
   )
-} 
+}

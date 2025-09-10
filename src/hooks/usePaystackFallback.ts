@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 
+// Extend window object to include PaystackPop
+declare global {
+  interface Window {
+    PaystackPop: any
+  }
+}
+
 interface PaystackProps {
   email: string
   amount: number

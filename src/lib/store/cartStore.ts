@@ -67,14 +67,28 @@ interface CartStore {
   syncCart: () => Promise<void>
 }
 
-// Generate session ID for anonymous users
+// Generate session ID for anonymous users with Safari compatibility
 const generateSessionId = () => {
   if (typeof window === 'undefined') return null
-  let sessionId = sessionStorage.getItem('cart-session-id')
-  if (!sessionId) {
-    sessionId = 'cart_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-    sessionStorage.setItem('cart-session-id', sessionId)
+  
+  let sessionId = null
+  
+  // Try sessionStorage first (may fail in Safari private browsing)
+  try {
+    sessionId = sessionStorage.getItem('cart-session-id')
+    if (!sessionId) {
+      sessionId = 'cart_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+      sessionStorage.setItem('cart-session-id', sessionId)
+    }
+  } catch (error) {
+    // Safari private browsing or storage disabled - use memory-based fallback
+    console.warn('SessionStorage not available, using memory-based session ID')
+    if (!(window as any).__cartSessionId) {
+      (window as any).__cartSessionId = 'cart_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    }
+    sessionId = (window as any).__cartSessionId
   }
+  
   return sessionId
 }
 
@@ -89,12 +103,19 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     try {
       set({ isLoading: true })
       
-      // Ensure cart is initialized
-      const { cartId } = get()
-      if (!cartId) {
-        await get().loadCart()
+      // Check if we're in Safari and storage is available
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      if (isSafari) {
+        try {
+          // Test storage availability in Safari
+          sessionStorage.setItem('__storage_test__', 'test')
+          sessionStorage.removeItem('__storage_test__')
+        } catch (error) {
+          console.warn('Safari storage blocked, cart may not persist across sessions')
+        }
       }
-            const supabase = createClient()
+      
+      const supabase = createClient()
       if (!supabase) {
         logger.error('❌ Cart - Supabase client not available')
         return
@@ -180,11 +201,6 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     try {
       set({ isLoading: true })
       
-      // Ensure cart is initialized
-      const { cartId } = get()
-      if (!cartId) {
-        await get().loadCart()
-      }
             const currentItems = get().items
       const cartItemId = variant ? `${product.id}-${variant.id}` : product.id
       
