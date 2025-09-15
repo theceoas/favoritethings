@@ -316,12 +316,24 @@ export const useCartStore = create<CartStore>()((set, get) => ({
   removeItem: async (itemId) => {
     try {
       const currentItems = get().items
+      const itemToRemove = currentItems.find(item => item.id === itemId)
+      
+      if (!itemToRemove) {
+        console.warn('⚠️ Cart - Item not found for removal:', itemId)
+        console.log('📋 Current cart items:', currentItems.map(item => ({ id: item.id, title: item.title })))
+        return
+      }
+      
+      console.log('🗑️ Removing item from cart:', { id: itemId, title: itemToRemove.title })
       const updatedItems = currentItems.filter(item => item.id !== itemId)
       
       set({ items: updatedItems })
       await get().syncCart()
+      
+      console.log('✅ Item removed successfully from cart')
     } catch (error) {
       logger.error('❌ Cart - Error removing item:', error)
+      throw error
     }
   },
 

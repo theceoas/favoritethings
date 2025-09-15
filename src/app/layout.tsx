@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Lobster } from "next/font/google";
 import "./globals.css";
+import "@/styles/safari-optimizations.css";
 import CartDrawer from "@/components/cart/CartDrawer";
 import CartInitializer from "@/components/CartInitializer";
+import BrowserCompatibility from "@/components/BrowserCompatibility";
+import SafariOptimizer from "@/components/SafariOptimizer";
+import SafariMonitorInit from '@/components/SafariMonitorInit';
 import { Toaster } from 'sonner';
 
 
@@ -39,15 +43,19 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} ${lobster.variable} font-[Outfit] antialiased text-gray-900`}>
-        {children}
-        <CartDrawer />
-        <CartInitializer />
-        <Toaster 
-          position="top-right"
-          expand={true}
-          richColors
-          closeButton
-        />
+        <BrowserCompatibility />
+        <SafariOptimizer>
+          {children}
+          <CartDrawer />
+          <CartInitializer />
+          <Toaster 
+            position="top-right"
+            expand={true}
+            richColors
+            closeButton
+          />
+          <SafariMonitorInit />
+        </SafariOptimizer>
       </body>
     </html>
   );

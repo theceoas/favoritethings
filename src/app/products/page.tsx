@@ -39,11 +39,19 @@ interface ProductData {
   updated_at: string
   sku?: string
   track_inventory: boolean
+  has_variants?: boolean
   brands?: {
     name: string
     slug: string
     primary_color: string
   }
+  product_variants?: Array<{
+    id: string
+    inventory_quantity: number
+    is_active: boolean
+    track_inventory?: boolean
+    allow_backorder?: boolean
+  }>
 }
 
 export default function ProductsPage() {
@@ -81,6 +89,13 @@ export default function ProductsPage() {
             name,
             slug,
             primary_color
+          ),
+          product_variants (
+            id,
+            inventory_quantity,
+            is_active,
+            track_inventory,
+            allow_backorder
           )
         `)
         .eq('is_active', true)

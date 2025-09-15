@@ -1,0 +1,220 @@
+/* Safari-specific CSS optimizations to reduce rendering lag */
+
+/* Force hardware acceleration for better performance */
+.is-safari * {
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000px;
+}
+
+/* Optimize animations for Safari */
+.is-safari .motion-reduce {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Improve button responsiveness in Safari */
+.is-safari button {
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  cursor: pointer;
+  will-change: transform;
+}
+
+.is-safari button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Optimize framer-motion components for Safari */
+.is-safari [data-framer-motion] {
+  will-change: auto !important;
+  -webkit-transform: translateZ(0);
+}
+
+/* Reduce complex effects that Safari handles poorly */
+.safari-optimized * {
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+.safari-optimized .motion-reduce {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Optimize images for Safari */
+.is-safari img {
+  -webkit-transform: translateZ(0);
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Optimize scrolling performance */
+.is-safari {
+  -webkit-overflow-scrolling: touch;
+}
+
+.is-safari * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduce repaints and reflows */
+.is-safari .card,
+.is-safari .product-tile,
+.is-safari .product-card {
+  contain: layout style paint;
+  will-change: transform;
+}
+
+/* Optimize hover effects for Safari */
+.is-safari .hover-effect {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.is-safari .hover-effect:hover {
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Optimize cart drawer and modals */
+.is-safari .modal,
+.is-safari .drawer {
+  -webkit-transform: translateZ(0);
+  will-change: transform, opacity;
+}
+
+/* Low performance device optimizations */
+.low-performance * {
+  backdrop-filter: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.low-performance button {
+  transition: none !important;
+  transform: none !important;
+}
+
+.low-performance img {
+  image-rendering: auto;
+}
+
+/* Optimize text rendering */
+.is-safari {
+  text-rendering: optimizeSpeed;
+}
+
+/* Reduce layout thrashing */
+.is-safari .grid,
+.is-safari .flex {
+  contain: layout;
+}
+
+/* Optimize form elements */
+.is-safari input,
+.is-safari textarea,
+.is-safari select {
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Optimize loading states */
+.is-safari .loading-spinner {
+  -webkit-transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Memory optimization for large lists */
+.is-safari .virtual-list {
+  contain: strict;
+  content-visibility: auto;
+}
+
+/* Optimize product images */
+.is-safari .product-image {
+  -webkit-transform: translateZ(0);
+  contain: layout style paint;
+}
+
+/* Reduce paint complexity */
+.is-safari .complex-gradient {
+  background: solid !important;
+}
+
+.is-safari .complex-shadow {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* Optimize navigation */
+.is-safari .nav-item {
+  contain: layout style;
+  will-change: transform;
+}
+
+/* Optimize cart animations */
+.is-safari .cart-item-enter {
+  animation-duration: 0.2s !important;
+}
+
+.is-safari .cart-item-exit {
+  animation-duration: 0.1s !important;
+}
+
+/* Force compositing for better performance */
+.is-safari .force-composite {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Optimize checkout flow */
+.is-safari .checkout-step {
+  contain: layout style paint;
+}
+
+/* Reduce memory usage */
+.is-safari .offscreen {
+  content-visibility: hidden;
+}
+
+/* Optimize search results */
+.is-safari .search-result {
+  contain: layout style;
+}
+
+/* Final performance boost */
+.is-safari {
+  -webkit-font-feature-settings: "kern" 1;
+  font-feature-settings: "kern" 1;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Disable expensive CSS features on older Safari versions */
+@supports not (backdrop-filter: blur(10px)) {
+  .safari-fallback {
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.9) !important;
+  }
+}
+
+/* Optimize for Safari on iOS */
+@media screen and (-webkit-min-device-pixel-ratio: 2) {
+  .is-safari img {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .is-safari * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

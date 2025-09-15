@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { OptimizedMotionButton } from './OptimizedMotion'
 import { ShoppingBag } from 'lucide-react'
 import { useCartStore } from '@/lib/store/cartStore'
 
@@ -26,23 +26,19 @@ export default function CartIcon({ className = '', size = 'md' }: CartIconProps)
   }
 
   return (
-    <motion.button
+    <OptimizedMotionButton
       onClick={openCart}
       className={`relative p-1 text-gray-600 hover:text-yellow-500 transition-colors ${className}`}
-      whileHover={{ scale: 1.1 }}
-      whileTap={{ scale: 0.9 }}
     >
       <ShoppingBag className={sizeClasses[size]} />
       {/* Cart Badge */}
       {totalItems > 0 && (
-        <motion.span
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className={`absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full ${badgeSizeClasses[size]} flex items-center justify-center font-bold`}
+        <span
+          className={`absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full ${badgeSizeClasses[size]} flex items-center justify-center font-bold animate-pulse`}
         >
           {totalItems}
-        </motion.span>
+        </span>
       )}
-    </motion.button>
+    </OptimizedMotionButton>
   )
 }

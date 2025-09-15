@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { useCartStore } from '@/lib/store/cartStore'
 import { supabase } from '@/lib/supabase/client'
 import { getProductImage } from '@/lib/utils/imageUtils'
-import { usePaystackFallback } from '@/hooks/usePaystackFallback'
+
 import { getStorePickupAddress, STORE_CONTACT_ADDRESS } from '@/lib/utils/storeAddress'
 import CartButton from '@/components/CartButton'
 import {
@@ -42,7 +42,6 @@ interface ShippingAddress {
 
 export default function CheckoutPage() {
   const { items, clearCart, getSubtotal, getTaxAmount, getTotalItems, removeItem } = useCartStore()
-  const { initializePayment, isScriptLoaded, scriptError } = usePaystackFallback()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -305,8 +304,8 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePaystackPayment = async () => {
-    console.log('🛒 Starting Paystack payment with items:', items)
+  const handleConfirmPayment = async () => {
+    console.log('🛒 Starting payment confirmation with items:', items)
     console.log('📋 Cart validation - items count:', items.length)
     
     if (items.length === 0) {
@@ -341,24 +340,6 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.warn('Could not refresh inventory, proceeding with current stock levels')
-    }
-
-    // Check Paystack key is configured
-    const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY
-    if (!publicKey) {
-      setError('Paystack is not configured. Please check environment variables.')
-      return
-    }
-
-    // Check if Paystack script has loaded
-    if (scriptError) {
-      setError('Payment system is currently unavailable. Please refresh the page and try again.')
-      return
-    }
-
-    if (!isScriptLoaded) {
-      setError('Payment system is still loading. Please wait a moment and try again.')
-      return
     }
 
     setLoading(true)
@@ -435,48 +416,42 @@ export default function CheckoutPage() {
         throw new Error(result.error || 'Failed to create order')
       }
 
-      console.log('✅ Order created successfully, now opening Paystack:', result)
+      console.log('✅ Order created successfully, now initializing payment simulation:', result)
 
-      // Now initialize Paystack payment popup
+      // Initialize payment simulation
       const total = getTotal()
-      console.log('💳 Initializing Paystack payment:', {
+      console.log('💳 Initializing payment simulation:', {
         email: shippingAddress.email,
         amount: Math.round(total * 100),
-        publicKey: publicKey.substring(0, 10) + '...',
         orderId: result.id
       })
 
-      // This will open the actual Paystack popup
-      initializePayment({
-        email: shippingAddress.email,
-        amount: Math.round(total * 100), // Convert to kobo
-        publicKey,
-        metadata: {
-          orderId: result.id,
-          orderNumber: result.order_number,
-          custom_fields: [
-            {
-              display_name: "Order Number",
-              variable_name: "order_number", 
-              value: result.order_number
-            }
-          ]
-        },
-        onSuccess: async (reference: any) => {
-          console.log('💳 Paystack payment successful:', reference)
-          await handlePaymentSuccess(reference.reference, result, false) // false = real payment
-        },
-        onClose: () => {
-          console.log('💳 Paystack payment popup closed by user')
-          setError('Payment was cancelled. You can try again.')
-          setLoading(false)
-        }
+      // Call the payment simulation API
+      const paymentResponse = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: shippingAddress.email,
+          amount: Math.round(total * 100),
+          metadata: {
+            orderId: result.id,
+            orderNumber: result.order_number
+          }
+        })
       })
 
-      // Don't set loading to false here - let the popup handle it
+      const paymentResult = await paymentResponse.json()
+      
+      if (!paymentResponse.ok || !paymentResult.success) {
+        throw new Error(paymentResult.error || 'Failed to initialize payment')
+      }
+
+      // Redirect to confirm payment page
+      const confirmUrl = paymentResult.data.authorization_url
+      window.location.href = confirmUrl
 
     } catch (error: any) {
-      console.error('💥 Paystack checkout error details:', {
+      console.error('💥 Payment confirmation error details:', {
         message: error.message,
         stack: error.stack,
         error: error
@@ -1801,8 +1776,8 @@ export default function CheckoutPage() {
 
                 {/* Payment Button */}
                 <motion.button
-                  onClick={handlePaystackPayment}
-                  disabled={loading || !isAddressComplete() || !isScriptLoaded || scriptError !== null}
+                  onClick={handleConfirmPayment}
+                  disabled={loading || !isAddressComplete()}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-semibold py-4 px-8 rounded-xl hover:from-yellow-500 hover:to-orange-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -1812,43 +1787,15 @@ export default function CheckoutPage() {
                       <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                       Processing...
                     </>
-                  ) : !isScriptLoaded ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                      Loading Payment System...
-                    </>
-                  ) : scriptError ? (
-                    <>
-                      <AlertTriangle className="w-5 h-5" />
-                      Payment System Error
-                    </>
                   ) : (
                     <>
                       <CreditCard className="w-5 h-5" />
-                      Pay ₦{getTotal().toLocaleString()}
+                      Confirm Payment - ₦{getTotal().toLocaleString()}
                     </>
                   )}
                 </motion.button>
 
-                {/* Payment Status Messages */}
-                {scriptError && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className="w-5 h-5 text-red-500" />
-                      <p className="text-red-800">Payment system failed to load. Please refresh the page.</p>
-                    </div>
-                  </div>
-                )}
-                
-                {!isScriptLoaded && !scriptError && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-blue-800">Loading payment system...</p>
-                    </div>
-                  </div>
-                )}
-                
+                {/* Error Messages */}
                 {error && (
                   <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
                     <div className="flex items-center space-x-2">

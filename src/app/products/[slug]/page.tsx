@@ -163,7 +163,7 @@ export default function ProductPage() {
   }
 
   // Get unique sizes from variants
-  const uniqueSizes = product?.variants ? [...new Set(product.variants.map(v => v.size).filter(Boolean))] : []
+  const uniqueSizes = product?.variants ? [...new Set(product.variants.map(v => v.size).filter((size): size is string => Boolean(size)))] : []
 
   // Handle size selection
   const handleSizeSelect = (size: string) => {
@@ -220,7 +220,28 @@ export default function ProductPage() {
     setIsAddingToCart(true)
     
     try {
-      await addItem(product, selectedVariant, quantity)
+      // Enhanced Safari compatibility with proper async handling
+       await new Promise((resolve, reject) => {
+         try {
+           // Ensure product has required properties for addItem
+            const productForCart = {
+              id: product.id,
+              title: product.title,
+              slug: product.slug,
+              price: product.price,
+              featured_image: product.featured_image,
+              sku: product.sku || '',
+              inventory_quantity: product.inventory_quantity ?? 0,
+              track_inventory: true
+            }
+            addItem(productForCart, selectedVariant || undefined, quantity)
+           // Small delay to ensure state updates properly in Safari
+           setTimeout(resolve, 50)
+         } catch (error) {
+           reject(error)
+         }
+       })
+      
       toast.success(`${product.title} added to cart!`)
     } catch (error) {
       console.error('Error adding to cart:', error)
@@ -291,7 +312,7 @@ export default function ProductPage() {
             <div className="aspect-[9/16] relative bg-gray-50 rounded-lg overflow-hidden">
               {allImages.length > 0 ? (
                 <Image
-                  src={allImages[currentImageIndex]}
+                  src={allImages[currentImageIndex] || '/placeholder-image.jpg'}
                   alt={product.title}
                   fill
                   className="object-cover object-center"
@@ -333,7 +354,7 @@ export default function ProductPage() {
                     }`}
                   >
                     <Image
-                      src={image}
+                      src={image || '/placeholder-image.jpg'}
                       alt={`${product.title} ${index + 1}`}
                       fill
                       className="object-cover object-center"
@@ -378,19 +399,32 @@ export default function ProductPage() {
                     Size
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    {uniqueSizes.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => handleSizeSelect(size)}
-                        className={`w-12 h-12 rounded-full border text-sm font-normal transition-all flex items-center justify-center ${
-                          selectedSize === size
-                            ? 'border-black bg-black text-white'
-                            : 'border-gray-300 bg-white text-black hover:border-black'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
+                    {uniqueSizes.map((size) => {
+                       const variant = product?.variants?.find(v => v.size === size && v.is_active)
+                       const isOutOfStock = !variant || (variant.inventory_quantity || 0) <= 0
+                      
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => !isOutOfStock && handleSizeSelect(size)}
+                          disabled={isOutOfStock}
+                          className={`w-12 h-12 rounded-full border text-sm font-normal transition-all flex items-center justify-center relative ${
+                            selectedSize === size
+                              ? 'border-black bg-black text-white'
+                              : isOutOfStock
+                              ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'border-gray-300 bg-white text-black hover:border-black'
+                          }`}
+                        >
+                          {size}
+                          {isOutOfStock && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-8 h-0.5 bg-gray-400 rotate-45 absolute"></div>
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -426,8 +460,14 @@ export default function ProductPage() {
                 <Button
                   onClick={handleAddToCart}
                   disabled={isAddingToCart || !isProductAvailable()}
-                  className="w-full h-14 text-base font-normal uppercase tracking-wide border-0 rounded-lg"
-                  style={{ backgroundColor: product.brands?.primary_color || '#F97316' }}
+                  type="button"
+                  style={{ 
+                    backgroundColor: product.brands?.primary_color || '#F97316',
+                    WebkitAppearance: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation'
+                  }}
+                  className="w-full h-14 text-base font-normal uppercase tracking-wide border-0 rounded-lg active:scale-98 transition-transform"
                 >
                   {isAddingToCart ? (
                     'Adding...'
@@ -480,4 +520,4 @@ export default function ProductPage() {
       </div>
     </div>
   )
-} 
+}

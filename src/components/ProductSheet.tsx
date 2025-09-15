@@ -91,22 +91,31 @@ export default function ProductSheet({
   const currentComparePrice = selectedVariant?.compare_at_price || product.compare_at_price
 
   // Add to cart functionality using simplified approach like product cards
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
     if (isAdding || !product) return
     
     setIsAdding(true)
     try {
-      addItem({
-        id: product.id,
-        title: product.title,
-        slug: product.slug,
-        price: currentPrice,
-        featured_image: product.featured_image,
-        sku: selectedVariant?.sku || product.sku || ''
+      // Use async/await for better Safari compatibility
+      await new Promise((resolve) => {
+        addItem({
+          id: product.id,
+          title: product.title,
+          slug: product.slug,
+          price: currentPrice,
+          featured_image: product.featured_image,
+          sku: selectedVariant?.sku || product.sku || ''
+        })
+        
+        // Small delay to ensure state updates properly in Safari
+        setTimeout(resolve, 50)
       })
+      
       toast.success(`${product.title} added to cart!`)
     } catch (error) {
+      console.error('Error adding to cart:', error)
       toast.error('Failed to add item to cart')
     } finally {
       setIsAdding(false)
@@ -346,7 +355,13 @@ export default function ProductSheet({
                   <Button
                     onClick={handleAddToCart}
                     disabled={isAdding}
-                    className="w-12 h-12 p-0 bg-white border-2 border-black hover:bg-black hover:text-white rounded-full transition-all duration-200 flex items-center justify-center"
+                    type="button"
+                    style={{
+                      WebkitAppearance: 'none',
+                      WebkitTapHighlightColor: 'transparent',
+                      touchAction: 'manipulation'
+                    }}
+                    className="w-12 h-12 p-0 bg-white border-2 border-black hover:bg-black hover:text-white active:scale-95 rounded-full transition-all duration-200 flex items-center justify-center"
                   >
                     {isAdding ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div>

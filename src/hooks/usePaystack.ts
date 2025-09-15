@@ -1,101 +1,126 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
-interface PaystackProps {
+interface PaystackConfig {
   email: string
-  amount: number // in kobo (multiply by 100)
-  publicKey: string
-  currency?: string
-  channels?: string[]
-  onSuccess: (reference: any) => void
-  onClose: () => void
+  amount: number
   metadata?: any
+  onSuccess: (transaction: any) => void
+  onClose: () => void
 }
 
-// Extend window object to include PaystackPop
+interface PaystackPopup {
+  resumeTransaction: (accessCode: string) => void
+}
+
 declare global {
   interface Window {
-    PaystackPop: any
+    PaystackPop?: any
   }
 }
 
 export const usePaystack = () => {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   useEffect(() => {
-    // Check if script is already loaded
+    // Check if Paystack script is already loaded
     if (window.PaystackPop) {
-      console.log('✅ Paystack SDK already loaded')
+      setIsLoaded(true)
       return
     }
 
     // Load Paystack script
     const script = document.createElement('script')
-    script.src = 'https://js.paystack.co/v1/inline.js'
+    script.src = 'https://js.paystack.co/v2/inline.js'
     script.async = true
     script.onload = () => {
-      console.log('✅ Paystack SDK loaded successfully')
+      setIsLoaded(true)
+      setError(null)
     }
     script.onerror = () => {
-      console.error('❌ Failed to load Paystack SDK')
+      setError('Failed to load Paystack script')
+      setIsLoaded(false)
     }
+
     document.head.appendChild(script)
 
     return () => {
-      // Cleanup - only remove if we added it
-      const existingScript = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]')
-      if (existingScript && document.head.contains(existingScript)) {
-        document.head.removeChild(existingScript)
+      // Cleanup script if component unmounts
+      if (script.parentNode) {
+        script.parentNode.removeChild(script)
       }
     }
   }, [])
 
-  const initializePayment = (config: PaystackProps) => {
-    console.log('🚀 Attempting to initialize Paystack payment...')
-    
-    if (!window.PaystackPop) {
-      console.error('❌ Paystack SDK not loaded yet')
-      // Try to wait a bit and retry
-      setTimeout(() => {
-        if (window.PaystackPop) {
-          console.log('✅ Paystack SDK loaded after retry')
-          initializePayment(config)
-        } else {
-          console.error('❌ Paystack SDK still not available after retry')
-        }
-      }, 1000)
-      return
+  const initializePayment = async (config: PaystackConfig) => {
+    if (!isLoaded) {
+      throw new Error('Paystack script not loaded')
     }
 
-    console.log('💳 Setting up Paystack payment with config:', {
-      email: config.email,
-      amount: config.amount,
-      publicKey: config.publicKey.substring(0, 10) + '...'
-    })
+    if (!window.PaystackPop) {
+      throw new Error('PaystackPop not available')
+    }
+
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const handler = window.PaystackPop.setup({
-        key: config.publicKey,
-        email: config.email,
-        amount: config.amount,
-        currency: config.currency || 'NGN',
-        channels: config.channels || ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer'],
-        callback: function(response: any) {
-          console.log('✅ Paystack callback triggered:', response)
-          config.onSuccess(response)
+      // Initialize transaction on backend
+      const response = await fetch('/api/paystack/initialize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        onClose: function() {
-          console.log('🚪 Paystack popup closed')
-          config.onClose()
-        },
-        metadata: config.metadata || {}
+        body: JSON.stringify({
+          email: config.email,
+          amount: config.amount,
+          metadata: config.metadata
+        })
       })
 
-      console.log('📱 Opening Paystack iframe...')
-      handler.openIframe()
-    } catch (error) {
-      console.error('❌ Error setting up Paystack payment:', error)
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to initialize payment')
+      }
+
+      // Create Paystack popup instance
+      const popup = new window.PaystackPop()
+
+      // Resume transaction with access code
+      popup.resumeTransaction(result.data.access_code)
+
+      // Set up event handlers
+      popup.onSuccess = (transaction: any) => {
+        setIsLoading(false)
+        config.onSuccess(transaction)
+      }
+
+      popup.onClose = () => {
+        setIsLoading(false)
+        config.onClose()
+      }
+
+      popup.onError = (error: any) => {
+        setIsLoading(false)
+        setError(error.message || 'Payment failed')
+        config.onClose()
+      }
+
+    } catch (err: any) {
+      setIsLoading(false)
+      setError(err.message || 'Payment initialization failed')
+      throw err
     }
   }
 
-  return { initializePayment }
-} 
+  return {
+    isLoaded,
+    isLoading,
+    error,
+    initializePayment
+  }
+}

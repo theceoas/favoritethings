@@ -18,17 +18,18 @@ export function detectBrowser(): BrowserInfo {
   let browserName = 'Unknown';
   let browserVersion = '0';
   
-  if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
+  // More robust Safari detection - Safari must be checked before Chrome
+  if (/^((?!chrome|android).)*safari/i.test(userAgent)) {
+    browserName = 'Safari';
+    const match = userAgent.match(/Version\/(\d+\.\d+)/);
+    browserVersion = match ? match[1] : '0';
+  } else if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
     browserName = 'Chrome';
     const match = userAgent.match(/Chrome\/(\d+)/);
     browserVersion = match ? match[1] : '0';
   } else if (userAgent.includes('Firefox')) {
     browserName = 'Firefox';
     const match = userAgent.match(/Firefox\/(\d+)/);
-    browserVersion = match ? match[1] : '0';
-  } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
-    browserName = 'Safari';
-    const match = userAgent.match(/Version\/(\d+)/);
     browserVersion = match ? match[1] : '0';
   } else if (userAgent.includes('Edg')) {
     browserName = 'Edge';
@@ -40,7 +41,7 @@ export function detectBrowser(): BrowserInfo {
   }
   
   // Check for compatibility issues
-  const version = parseInt(browserVersion);
+  const version = parseFloat(browserVersion);
   
   if (browserName === 'Firefox' && version < 60) {
     issues.push('Firefox version is too old. Please update to Firefox 60 or later.');
@@ -53,6 +54,9 @@ export function detectBrowser(): BrowserInfo {
   if (browserName === 'Edge' && version < 79) {
     issues.push('Edge version is too old. Please update to Edge 79 or later.');
   }
+  
+  // Log detection for debugging
+  console.log('Browser detected:', { browserName, browserVersion, userAgent });
   
   const isSupported = issues.length === 0;
   
@@ -81,13 +85,13 @@ export function checkFeatureSupport(): { [key: string]: boolean } {
     customElements: 'customElements' in window,
     shadowDOM: 'attachShadow' in Element.prototype,
     es6Modules: 'noModule' in HTMLScriptElement.prototype,
-    asyncAwait: (async () => {})().then(() => true).catch(() => false),
+    asyncAwait: true, // Modern browsers support async/await
     arrowFunctions: (() => true)(),
     templateLiterals: `test${'template'}` === 'testtemplate',
     destructuring: (() => { const {test} = {test: true}; return test; })(),
     spreadOperator: (() => { const arr = [...[1,2,3]]; return arr.length === 3; })(),
-    optionalChaining: (() => { try { return ({} as any)?.test === undefined; } catch { return false; } })(),
-    nullishCoalescing: (() => { try { return (null ?? 'test') === 'test'; } catch { return false; } })()
+    optionalChaining: true, // Modern browsers support optional chaining
+    nullishCoalescing: (() => { try { return (null ?? 'test') === 'test'; } catch (e) { return false; } })()
   };
 }
 
@@ -120,18 +124,12 @@ export function showBrowserWarning(browserInfo: BrowserInfo): void {
 export function polyfillMissingFeatures(): void {
   // Polyfill for older browsers that don't support fetch
   if (typeof fetch === 'undefined') {
-    console.warn('Fetch API not supported, loading polyfill...');
-    import('whatwg-fetch').catch(() => {
-      console.error('Failed to load fetch polyfill');
-    });
+    console.warn('Fetch API not supported');
   }
   
   // Polyfill for older browsers that don't support Promise
   if (typeof Promise === 'undefined') {
-    console.warn('Promise not supported, loading polyfill...');
-    import('es6-promise/auto').catch(() => {
-      console.error('Failed to load Promise polyfill');
-    });
+    console.warn('Promise not supported');
   }
 }
 
@@ -153,4 +151,44 @@ export function initializeBrowserCompatibility(): void {
   // Store browser info for debugging
   (window as any).__browserInfo = browserInfo;
   (window as any).__featureSupport = features;
+  
+  // Apply Safari-specific optimizations immediately
+  if (browserInfo.name === 'Safari') {
+    applySafariOptimizations();
+  }
+}
+
+// Safari-specific optimizations
+function applySafariOptimizations(): void {
+  // Add Safari class to document
+  document.documentElement.classList.add('is-safari');
+  
+  // Disable complex animations for Safari
+  const style = document.createElement('style');
+  style.textContent = `
+    .is-safari * {
+      -webkit-transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      -webkit-perspective: 1000px;
+    }
+    
+    .is-safari .motion-reduce {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    
+    .is-safari button {
+      -webkit-appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    
+    .is-safari [data-framer-motion] {
+      will-change: auto !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  console.log('🍎 Safari optimizations applied');
 }

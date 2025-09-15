@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { useCartStore } from '@/lib/store/cartStore'
 import { getProductImage } from '@/lib/utils/imageUtils'
 import CartButton from '@/components/CartButton'
+import { toast } from 'sonner'
 import {
   Minus,
   Plus,
@@ -279,7 +280,15 @@ export default function CartPage() {
 
                         {/* Remove Button */}
                         <motion.button
-                          onClick={() => removeItem(item.id)}
+                          onClick={async () => {
+                            try {
+                              await removeItem(item.id)
+                              toast.success(`${item.title} removed from cart`)
+                            } catch (error) {
+                              console.error('Failed to remove item:', error)
+                              toast.error('Failed to remove item from cart')
+                            }
+                          }}
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           className="text-red-500 hover:text-red-700 p-2"

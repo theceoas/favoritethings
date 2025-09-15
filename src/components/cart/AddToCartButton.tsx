@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSimpleCartStore } from '@/lib/store/simpleCartStore'
+import { useCartStore } from '@/lib/store/cartStore'
 import { ShoppingCartIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { toast } from 'sonner'
 
 interface ProductVariant {
   id: string
@@ -55,9 +56,13 @@ export default function AddToCartButton({
   const [isAdding, setIsAdding] = useState(false)
   const [isAdded, setIsAdded] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { addItem } = useSimpleCartStore()
+  const { addItem } = useCartStore()
 
-  const handleClick = () => {
+  const handleClick = async (e: React.MouseEvent) => {
+    // Prevent event bubbling and default behavior for Safari compatibility
+    e.preventDefault()
+    e.stopPropagation()
+    
     if (isAdding) return
 
     // If the button text is "Select Options", navigate to product page
@@ -73,19 +78,22 @@ export default function AddToCartButton({
     try {
       console.log('Adding item to cart:', { product, variant, quantity })
       
-      // Use the simplified cart store
-      addItem({
+      // Use the main cart store with proper async handling
+      await addItem({
         id: product.id,
         title: product.title,
         slug: product.slug,
-        price: product.price,
+        price: variant?.price ?? product.price,
         featured_image: product.featured_image,
-        sku: product.sku || ''
-      })
+        sku: variant?.sku ?? (product.sku || ''),
+        inventory_quantity: variant?.inventory_quantity ?? product.inventory_quantity,
+        track_inventory: variant?.track_inventory ?? product.track_inventory
+      }, variant, quantity)
       
       console.log('Successfully added item to cart')
       
-      // Show success state
+      // Show success feedback
+      toast.success(`${product.title} added to cart!`)
       setIsAdded(true)
       setTimeout(() => {
         setIsAdded(false)
@@ -145,11 +153,17 @@ export default function AddToCartButton({
       <button
         onClick={handleClick}
         disabled={!canAddToCart}
+        type="button"
+        style={{
+          WebkitAppearance: 'none',
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation'
+        }}
         className={`
           relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200
           ${
             canAddToCart
-              ? 'bg-black text-white hover:bg-gray-800 active:bg-gray-900'
+              ? 'bg-black text-white hover:bg-gray-800 active:bg-gray-900 active:scale-95'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }
           ${className}

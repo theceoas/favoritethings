@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from "framer-motion"
+import { OptimizedMotionCard } from './OptimizedMotion'
 import Image from "next/image"
 import { Package } from "lucide-react"
 import { useState } from "react"
@@ -56,12 +56,18 @@ export default function ProductTile({
   const hasSecondaryImage = secondaryImage && secondaryImage !== primaryImage
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+    <OptimizedMotionCard
       className="group cursor-pointer"
-      onClick={() => onClick(product)}
+      onClick={() => {
+        if (product.inventory_quantity && product.inventory_quantity > 0) {
+          onClick({
+            ...product,
+            inventory_quantity: product.inventory_quantity
+          })
+        } else {
+          onClick(product)
+        }
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -139,6 +145,6 @@ export default function ProductTile({
           )}
         </div>
       </div>
-    </motion.div>
+    </OptimizedMotionCard>
   )
-} 
+}
