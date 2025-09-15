@@ -125,7 +125,7 @@ export default function TestAuthValidation() {
           <h3 className="text-lg font-semibold text-blue-900 mb-3">How to Test Deleted User Issue</h3>
           <ol className="list-decimal list-inside space-y-2 text-blue-800 mb-4">
             <li>Login with a user account</li>
-            <li>Delete that user from the Supabase dashboard (Auth > Users)</li>
+            <li>Delete that user from the Supabase dashboard (Auth &gt; Users)</li>
             <li>Come back to this page</li>
             <li>The hook should automatically detect the invalid session and redirect to login</li>
             <li>If you click "Test Manual Validation", it should return isValid: false</li>
@@ -171,4 +171,4 @@ export default function TestAuthValidation() {
       </div>
     </div>
   )
-} 
+}

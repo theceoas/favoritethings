@@ -99,6 +99,22 @@ export default function MiniMeBrandPage() {
     fetchBrandData()
   }, [])
 
+  // Auto-refresh when navigating back to this page
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        // Page was loaded from cache (back button navigation)
+        window.location.reload()
+      }
+    }
+
+    window.addEventListener('pageshow', handlePageShow)
+    
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+    }
+  }, [])
+
   const fetchBrandData = async () => {
     try {
       const supabase = createClient()
@@ -623,4 +639,4 @@ export default function MiniMeBrandPage() {
       />
     </div>
   )
-} 
+}

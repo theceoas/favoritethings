@@ -27,88 +27,69 @@ function CheckoutSuccessContent() {
 
         console.log('Processing payment success for reference:', reference)
 
-        // Get cart data from localStorage
-        const cartData = localStorage.getItem('cart')
-        const shippingData = localStorage.getItem('shippingAddress')
-        const deliveryData = localStorage.getItem('deliveryMethod')
-        
-        if (!cartData) {
-          setError('Cart data not found')
+        // Get order data from database using payment reference
+        const { data: orders, error: orderError } = await supabase
+          .from('orders')
+          .select(`
+            *,
+            order_items (
+              id,
+              product_id,
+              variant_id,
+              title,
+              variant_title,
+              sku,
+              quantity,
+              price,
+              total
+            )
+          `)
+          .eq('payment_reference', reference)
+          .single()
+
+        if (orderError || !orders) {
+          console.error('Order not found for reference:', reference, orderError)
+          setError('Order not found for this payment reference')
           setIsProcessing(false)
           return
         }
 
-        const cart = JSON.parse(cartData)
-        const shippingAddress = shippingData ? JSON.parse(shippingData) : null
-        const deliveryMethod = deliveryData ? JSON.parse(deliveryData) : null
+        console.log('Order found:', orders)
+        setOrderNumber(orders.order_number)
 
-        // Calculate total
-        const subtotal = cart.reduce((sum: number, item: any) => {
-          return sum + (item.price * item.quantity)
-        }, 0)
-        
-        const deliveryFee = deliveryMethod?.method === 'delivery' ? 2000 : 0
-        const total = subtotal + deliveryFee
-
-        // Generate order number
-        const orderNum = `BZ${Date.now()}`
-        setOrderNumber(orderNum)
+        // Use order data from database
+        const orderData = {
+          customer_name: `${orders.customer_first_name} ${orders.customer_last_name}`,
+          customer_email: orders.email,
+          customer_phone: orders.customer_phone,
+          shipping_address: orders.shipping_address,
+          billing_address: orders.billing_address,
+          delivery_method: orders.delivery_method,
+          total: orders.total,
+          items: orders.order_items
+        }
 
         // Get current user
         const { data: { user } } = await supabase.auth.getUser()
         
-        // Create order in database
-        const orderData = {
-          order_number: orderNum,
-          customer_id: user?.id || null,
-          customer_email: user?.email || shippingAddress?.email || 'guest@example.com',
-          customer_name: shippingAddress?.fullName || 'Guest Customer',
-          customer_phone: shippingAddress?.phone || '',
-          items: cart,
-          subtotal: subtotal,
-          delivery_fee: deliveryFee,
-          total: total,
-          payment_reference: reference,
-          payment_status: 'completed',
-          order_status: 'pending',
-          delivery_method: deliveryMethod?.method || 'pickup',
-          shipping_address: shippingAddress,
-          delivery_details: deliveryMethod,
-          created_at: new Date().toISOString()
-        }
+        console.log('Order already exists in database:', orders)
 
-        console.log('Creating order:', orderData)
-
-        // Insert order into database
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert([orderData])
-          .select()
-          .single()
-
-        if (orderError) {
-          console.error('Order creation error:', orderError)
-          // Continue anyway for demo purposes
-        } else {
-          console.log('Order created successfully:', order)
-        }
-
-        // Create notification for admin
+        // Create notification for admin if not already created
         const notificationData = {
-          type: 'new_order',
-          title: 'New Order Received',
-          message: `Order ${orderNum} has been placed by ${orderData.customer_name}`,
+          type: 'payment_completed',
+          title: 'Payment Completed',
+          message: `Payment completed for order ${orders.order_number} by ${orderData.customer_name}`,
           data: {
-            order_number: orderNum,
+            order_number: orders.order_number,
             customer_name: orderData.customer_name,
-            total: total,
-            items_count: cart.length
+            total: orders.total,
+            items_count: orders.order_items.length
           },
           is_read: false,
           created_at: new Date().toISOString()
         }
 
-        console.log('Creating notification:', notificationData)
+        console.log('Creating payment completion notification:', notificationData)
 
         // Insert notification
         const { error: notificationError } = await supabase
@@ -119,10 +100,10 @@ function CheckoutSuccessContent() {
           console.error('Notification creation error:', notificationError)
           // Continue anyway
         } else {
-          console.log('Notification created successfully')
+          console.log('Payment completion notification created successfully')
         }
 
-        // Clear cart and related data
+        // Clear any remaining cart data (cart should already be cleared by checkout page)
         localStorage.removeItem('cart')
         localStorage.removeItem('shippingAddress')
         localStorage.removeItem('deliveryMethod')
@@ -130,15 +111,38 @@ function CheckoutSuccessContent() {
         // Wait a moment for processing animation
         await new Promise(resolve => setTimeout(resolve, 2000))
 
-        // Redirect to thank you page with order details
-        const thankYouUrl = `/thank-you?order=${orderNum}&email=${encodeURIComponent(orderData.customer_email)}&delivery=${deliveryMethod?.method || 'pickup'}`
-        
-        if (deliveryMethod?.method === 'pickup' && deliveryMethod.pickupDetails) {
-          const pickupParam = encodeURIComponent(JSON.stringify(deliveryMethod.pickupDetails))
-          router.push(`${thankYouUrl}&pickup=${pickupParam}`)
-        } else {
-          router.push(thankYouUrl)
+        // Redirect to thank you page with complete order data
+        const orderDataForThankYou = {
+          id: orders.id,
+          order_number: orders.order_number,
+          email: orders.email,
+          total: orders.total,
+          subtotal: orders.subtotal,
+          tax_amount: orders.tax_amount,
+          shipping_amount: orders.shipping_amount,
+          discount_amount: orders.discount_amount,
+          currency: orders.currency,
+          delivery_method: orders.delivery_method,
+          shipping_address: orders.shipping_address,
+          pickup_details: orders.pickup_details,
+          items: orders.order_items || [],
+          status: orders.status,
+          payment_status: orders.payment_status,
+          created_at: orders.created_at
         }
+
+        const thankYouParams = new URLSearchParams({
+          order: JSON.stringify(orderDataForThankYou),
+          email: orders.email,
+          delivery: orders.delivery_method
+        })
+
+        if (orders.delivery_method === 'pickup' && orders.pickup_details) {
+          thankYouParams.append('pickup', JSON.stringify(orders.pickup_details))
+        }
+
+        const thankYouUrl = `/thank-you?${thankYouParams.toString()}`
+        router.push(thankYouUrl)
 
       } catch (error) {
         console.error('Payment processing error:', error)

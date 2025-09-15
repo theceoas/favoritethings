@@ -4,7 +4,6 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import CartButton from '@/components/CartButton'
 import { 
   CheckCircle, 
   Truck, 
@@ -20,7 +19,7 @@ import {
 function ThankYouPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [orderNumber, setOrderNumber] = useState('')
+  const [orderData, setOrderData] = useState<any>(null)
   const [email, setEmail] = useState('')
   const [deliveryMethod, setDeliveryMethod] = useState('')
   const [pickupDetails, setPickupDetails] = useState<any>(null)
@@ -39,13 +38,37 @@ function ThankYouPageContent() {
       allParams: Object.fromEntries(searchParams.entries())
     })
 
-    if (orderParam) setOrderNumber(orderParam)
+    // Parse order data from JSON
+    if (orderParam) {
+      try {
+        const parsedOrder = JSON.parse(decodeURIComponent(orderParam))
+        setOrderData(parsedOrder)
+        console.log('📦 Parsed order data:', parsedOrder)
+      } catch (e) {
+        console.error('Error parsing order data:', e)
+        // Fallback to treating it as order number string
+        setOrderData({ order_number: orderParam })
+      }
+    }
+
     if (emailParam) setEmail(emailParam)
     if (deliveryParam) setDeliveryMethod(deliveryParam)
-    if (pickupParam) {
+    if (pickupParam && pickupParam !== '') {
       try {
-        const parsed = JSON.parse(pickupParam)
-        setPickupDetails(parsed)
+        // Handle pickup details - could be JSON or simple string
+        if (pickupParam.includes('{')) {
+          const parsed = JSON.parse(decodeURIComponent(pickupParam))
+          setPickupDetails(parsed)
+        } else {
+          // Simple string format like "2024-12-25 14:00"
+          const parts = pickupParam.split(' ')
+          if (parts.length >= 2) {
+            setPickupDetails({
+              date: parts[0],
+              time: parts.slice(1).join(' ')
+            })
+          }
+        }
       } catch (e) {
         console.error('Error parsing pickup details:', e)
       }
@@ -94,13 +117,10 @@ function ThankYouPageContent() {
         />
       </div>
 
-      {/* Floating Cart Button */}
-      <CartButton variant="floating" size="lg" />
-
       <div className="relative z-10 py-6 sm:py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Show demo notice if no order data */}
-          {!orderNumber && (
+          {!orderData && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -159,18 +179,76 @@ function ThankYouPageContent() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
                 <div>
                   <p className="text-white/80 text-xs sm:text-sm">Order Number</p>
-                  <p className="text-lg sm:text-xl lg:text-2xl font-bold break-all">{orderNumber || 'BZ20241220001'}</p>
+                  <p className="text-lg sm:text-xl lg:text-2xl font-bold break-all">{orderData?.order_number || 'BZ20241220001'}</p>
                 </div>
-                {(email || !orderNumber) && (
+                {(email || !orderData) && (
                   <div className="sm:border-l sm:border-white/20 sm:pl-4 pt-2 sm:pt-0">
                     <p className="text-white/80 text-xs sm:text-sm">Email</p>
-                    <p className="font-medium text-sm sm:text-base break-all">{email || 'customer@example.com'}</p>
+                    <p className="font-medium text-sm sm:text-base break-all">{email || orderData?.email || 'customer@example.com'}</p>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="p-4 sm:p-6">
+              {/* Order Items */}
+              {orderData?.items && orderData.items.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-amber-800 mb-4">Order Items</h3>
+                  <div className="space-y-3">
+                    {orderData.items.map((item: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium text-amber-900">{item.title}</p>
+                          {item.variant_title && (
+                            <p className="text-sm text-amber-700">{item.variant_title}</p>
+                          )}
+                          <p className="text-sm text-amber-600">Qty: {item.quantity}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-amber-900">₦{(item.price * item.quantity).toLocaleString()}</p>
+                          <p className="text-sm text-amber-600">₦{item.price.toLocaleString()} each</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Order Summary */}
+                  <div className="mt-4 p-4 bg-gradient-to-r from-amber-100 to-orange-100 rounded-lg">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-amber-700">Subtotal:</span>
+                        <span className="text-amber-900">₦{orderData.subtotal?.toLocaleString() || '0'}</span>
+                      </div>
+                      {orderData.tax_amount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-amber-700">Tax:</span>
+                          <span className="text-amber-900">₦{orderData.tax_amount?.toLocaleString() || '0'}</span>
+                        </div>
+                      )}
+                      {orderData.shipping_amount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-amber-700">Shipping:</span>
+                          <span className="text-amber-900">₦{orderData.shipping_amount?.toLocaleString() || '0'}</span>
+                        </div>
+                      )}
+                      {orderData.discount_amount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-amber-700">Discount:</span>
+                          <span className="text-green-600">-₦{orderData.discount_amount?.toLocaleString() || '0'}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-amber-300 pt-2">
+                        <div className="flex justify-between font-semibold">
+                          <span className="text-amber-800">Total:</span>
+                          <span className="text-amber-900">₦{orderData.total?.toLocaleString() || '0'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delivery Information */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
                 <motion.div 
@@ -349,4 +427,4 @@ export default function ThankYouPage() {
       <ThankYouPageContent />
     </Suspense>
   )
-} 
+}

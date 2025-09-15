@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     // Simulate payment initialization with mock data
     const mockResponse = {
       access_code: `sim_access_${Date.now()}`,
-      authorization_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/confirm-payment?ref=${reference}`,
+      authorization_url: `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/checkout/confirm-payment?ref=${reference}`,
       reference: reference
     }
 

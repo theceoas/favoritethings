@@ -95,6 +95,12 @@ export default function AddToCartButton({
       // Show success feedback
       toast.success(`${product.title} added to cart!`)
       setIsAdded(true)
+      
+      // Auto-refresh the page to force update the cart state
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+      
       setTimeout(() => {
         setIsAdded(false)
       }, 2000)

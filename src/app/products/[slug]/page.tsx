@@ -243,6 +243,11 @@ export default function ProductPage() {
        })
       
       toast.success(`${product.title} added to cart!`)
+      
+      // Auto-refresh the page to force update the cart state
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       console.error('Error adding to cart:', error)
       toast.error(error instanceof Error ? error.message : 'Failed to add to cart')

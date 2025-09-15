@@ -304,8 +304,8 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleConfirmPayment = async () => {
-    console.log('🛒 Starting payment confirmation with items:', items)
+  const handleConfirmOrder = async () => {
+    console.log('🛒 Starting order confirmation with items:', items)
     console.log('📋 Cart validation - items count:', items.length)
     
     if (items.length === 0) {
@@ -346,7 +346,7 @@ export default function CheckoutPage() {
     setError('')
 
     try {
-      // First create the order
+      // Create the order
       const orderItems = items.map(item => ({
         product_id: item.product_id,
         product_variant_id: item.variant_id, // CRITICAL: Include variant_id for inventory reduction
@@ -355,9 +355,6 @@ export default function CheckoutPage() {
         sku: item.sku,
         quantity: item.quantity,
         price: item.price,
-        size: item.size,
-        color: item.color,
-        material: item.material,
         total: item.price * item.quantity
       }))
 
@@ -416,47 +413,39 @@ export default function CheckoutPage() {
         throw new Error(result.error || 'Failed to create order')
       }
 
-      console.log('✅ Order created successfully, now initializing payment simulation:', result)
+      console.log('✅ Order created successfully:', result)
 
-      // Initialize payment simulation
-      const total = getTotal()
-      console.log('💳 Initializing payment simulation:', {
-        email: shippingAddress.email,
-        amount: Math.round(total * 100),
-        orderId: result.id
-      })
+      // Clear the cart
+      const { clearCart } = useCartStore.getState()
+      clearCart()
 
-      // Call the payment simulation API
-      const paymentResponse = await fetch('/api/paystack/initialize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: shippingAddress.email,
-          amount: Math.round(total * 100),
-          metadata: {
-            orderId: result.id,
-            orderNumber: result.order_number
-          }
+      // Create notification for successful order
+      try {
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'order_created',
+            title: 'New Order Created',
+            message: `Order #${result.order_number} has been created successfully`,
+            metadata: { orderId: result.id }
+          })
         })
-      })
-
-      const paymentResult = await paymentResponse.json()
-      
-      if (!paymentResponse.ok || !paymentResult.success) {
-        throw new Error(paymentResult.error || 'Failed to initialize payment')
+      } catch (notificationError) {
+        console.warn('Failed to create notification:', notificationError)
       }
 
-      // Redirect to confirm payment page
-      const confirmUrl = paymentResult.data.authorization_url
-      window.location.href = confirmUrl
+      // Redirect to thank you page with order details
+      const thankYouUrl = `/thank-you?order=${encodeURIComponent(JSON.stringify(result))}&email=${encodeURIComponent(shippingAddress.email)}&delivery=${encodeURIComponent(deliveryMethod)}&pickup=${encodeURIComponent(deliveryMethod === 'pickup' ? `${pickupDate} ${pickupTime}` : '')}`
+      window.location.href = thankYouUrl
 
     } catch (error: any) {
-      console.error('💥 Payment confirmation error details:', {
+      console.error('💥 Order confirmation error details:', {
         message: error.message,
         stack: error.stack,
         error: error
       })
-      setError(error.message || 'Failed to initialize payment. Please try again.')
+      setError(error.message || 'Failed to create order. Please try again.')
       setLoading(false)
     }
   }
@@ -1774,9 +1763,9 @@ export default function CheckoutPage() {
                     )}
                   </div>
 
-                {/* Payment Button */}
+                {/* Order Button */}
                 <motion.button
-                  onClick={handleConfirmPayment}
+                  onClick={handleConfirmOrder}
                   disabled={loading || !isAddressComplete()}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -1789,8 +1778,8 @@ export default function CheckoutPage() {
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-5 h-5" />
-                      Confirm Payment - ₦{getTotal().toLocaleString()}
+                      <CheckCircle className="w-5 h-5" />
+                      Confirm Order - ₦{getTotal().toLocaleString()}
                     </>
                   )}
                 </motion.button>

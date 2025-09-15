@@ -22,15 +22,73 @@ function ConfirmPaymentContent() {
     setIsProcessing(true)
 
     try {
-      // Simulate payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      console.log('🔄 Confirming payment with reference:', reference)
 
-      // Redirect to success page with the reference
-      const successUrl = `/checkout/success?reference=${reference}&payment_confirmed=true`
+      // Step 1: Verify payment with Paystack
+      const verifyResponse = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reference }),
+      })
+
+      const verifyData = await verifyResponse.json()
+
+      if (!verifyResponse.ok || !verifyData.success) {
+        throw new Error(verifyData.error || 'Payment verification failed')
+      }
+
+      console.log('✅ Payment verified successfully:', verifyData.data)
+
+      // Step 2: Find and update the order in database
+      const orderResponse = await fetch('/api/orders/update-payment-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          payment_reference: reference,
+          payment_status: 'paid',
+          payment_data: verifyData.data
+        }),
+      })
+
+      const orderData = await orderResponse.json()
+
+      if (!orderResponse.ok) {
+        throw new Error(orderData.error || 'Failed to update order status')
+      }
+
+      console.log('✅ Order status updated successfully:', orderData.order_number)
+
+      // Step 3: Create payment notification
+      try {
+        await fetch('/api/notifications/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            type: 'payment_received',
+            orderNumber: orderData.order_number,
+            orderId: orderData.id,
+            amount: orderData.total
+          }),
+        })
+        console.log('✅ Payment notification created')
+      } catch (notificationError) {
+        console.warn('⚠️ Failed to create payment notification:', notificationError)
+        // Don't fail the payment confirmation for notification errors
+      }
+
+      // Step 4: Redirect to success page
+      const successUrl = `/checkout/success?reference=${reference}&payment_confirmed=true&order_number=${orderData.order_number}`
       router.push(successUrl)
+
     } catch (error) {
-      console.error('Payment confirmation error:', error)
-      alert('Payment confirmation failed. Please try again.')
+      console.error('❌ Payment confirmation error:', error)
+      alert(`Payment confirmation failed: ${error.message}. Please try again or contact support.`)
       setIsProcessing(false)
     }
   }
