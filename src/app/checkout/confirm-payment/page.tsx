@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CheckCircle, CreditCard, ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
-export default function ConfirmPaymentPage() {
+function ConfirmPaymentContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -150,5 +150,25 @@ export default function ConfirmPaymentPage() {
         </div>
       </motion.div>
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+        <Loader2 className="w-16 h-16 mx-auto text-blue-500 animate-spin mb-4" />
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">Loading Payment Details...</h1>
+        <p className="text-gray-600">Please wait while we load your payment information.</p>
+      </div>
+    </div>
+  )
+}
+
+export default function ConfirmPaymentPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ConfirmPaymentContent />
+    </Suspense>
   )
 }
